@@ -1,22 +1,3 @@
-{
-  "$schema": "https://ui.shadcn.com/schema.json",
-  "style": "new-york",
-  "rsc": true,
-  "tsx": true,
-  "tailwind": {
-    "config": "",
-    "css": "src/app/globals.css",
-    "baseColor": "slate",
-    "cssVariables": true,
-    "prefix": ""
-  },
-  "iconLibrary": "lucide",
-  "aliases": {
-    "components": "@/components",
-    "utils": "@/lib/utils",
-    "ui": "@/components/ui",
-    "lib": "@/lib",
-    "hooks": "@/hooks"
-  },
-  "registries": {}
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:7e323f75f282d7be17167d0e838aa927dadfc209a355142a2fcce1f08001036e
+size 449
