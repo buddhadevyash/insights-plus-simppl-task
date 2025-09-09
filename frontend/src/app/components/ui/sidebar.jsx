@@ -172,9 +172,9 @@ export default function Sidebar() {
               )}
             >
               <span className="text-sm font-medium text-foreground">
-                User Name
+                Yash Buddhadev
               </span>
-              <span className="text-xs text-muted-foreground">Admin</span>
+              <span className="text-xs text-muted-foreground">Developer</span>
             </div>
           </div>
         </div>
