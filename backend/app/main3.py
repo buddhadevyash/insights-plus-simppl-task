@@ -11,19 +11,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import re
 from fuzzywuzzy import process, fuzz
+from dotenv import load_dotenv
+
 
 # Load .env file from your path
 load_dotenv("/home/y21tbh/Documents/insights-plus/insights-plus-simppl-task/backend/app/.env")
 
 # Read credentials
-
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-DATA_DIRECTORY = "/home/y21tbh/Documents/insights-plus/insights-plus-simppl-task/backend/json_data"
-MAX_ITEMS_PER_CLUSTER = 5  # Reduced from 8 to 5 to limit context size
-MAX_TEXT_LENGTH = 200  # Reduced from 300 to 200 characters
+EMBEDDED_DATA_DIRECTORY = "/home/y21tbh/Documents/insights-plus/insights-plus-simppl-task/backend/embedded_json_data"
+MAX_ITEMS_PER_CLUSTER = 5
+MAX_TEXT_LENGTH = 200
 
 # --- Global Clients & Models (Loaded once on startup) ---
-# FIX: Initialize the AsyncGroq client for asynchronous operations
 groq_client = AsyncGroq(api_key=GROQ_API_KEY)
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
@@ -52,8 +52,8 @@ clustered_data_cache = None
 cluster_names_cache = []
 
 # --- Helper Functions ---
-def read_json_file(file_path: str, limit: int) -> List[Dict[str, Any]]:
-    """Reads and parses a JSON file, limiting the number of records returned."""
+def read_json_file(file_path: str) -> List[Dict[str, Any]]:
+    """Reads and parses a JSON file, returning all records."""
     if not os.path.exists(file_path):
         print(f"⚠️ Warning: File not found at {file_path}")
         return []
@@ -62,27 +62,41 @@ def read_json_file(file_path: str, limit: int) -> List[Dict[str, Any]]:
     content = content.replace('NaN', 'null')
     try:
         data = json.loads(content)
-        return data[:limit] if isinstance(data, list) else [data]
+        return data if isinstance(data, list) else [data]
     except json.JSONDecodeError:
         data = [json.loads(line) for line in content.splitlines() if line.strip()]
-        return data[:limit]
+        return data
+
+def read_embedded_json_file(file_path: str) -> List[Dict[str, Any]]:
+    """Reads and parses embedded JSON files that contain small_embedding field."""
+    if not os.path.exists(file_path):
+        print(f"⚠️ Warning: Embedded file not found at {file_path}")
+        return []
+    
+    with open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+    content = content.replace('NaN', 'null')
+    
+    try:
+        data = json.loads(content)
+        return data if isinstance(data, list) else [data]
+    except json.JSONDecodeError:
+        data = [json.loads(line) for line in content.splitlines() if line.strip()]
+        return data
 
 def extract_meaningful_text(record: Dict[str, Any]) -> str:
     """
     Intelligently extracts readable text from a record, parsing nested JSON if necessary.
-    This version is more robust to handle different nested structures.
     """
     text_content = record.get('text') or record.get('raw_text') or record.get('title') or record.get('body') or ''
     
     if isinstance(text_content, str) and text_content.strip().startswith('{'):
         try:
             nested_data = json.loads(text_content)
-            # Check for common text-holding keys in a prioritized order
             title = nested_data.get('title', '')
             description = nested_data.get('description', '')
             body = nested_data.get('body', '')
             
-            # Combine all found text parts
             full_text = f"{title} {description} {body}".strip()
             return full_text if full_text else text_content
         except (json.JSONDecodeError, TypeError):
@@ -98,7 +112,6 @@ def find_best_cluster_match(cluster_name: str, available_clusters: List[str], th
     if not cluster_name or not available_clusters:
         return None
     
-    # Try to find the best match
     best_match, score = process.extractOne(cluster_name, available_clusters, scorer=fuzz.partial_ratio)
     
     if score >= threshold:
@@ -111,15 +124,12 @@ def find_best_cluster_match(cluster_name: str, available_clusters: List[str], th
 def format_data_for_llm(record: Dict[str, Any]) -> str:
     """
     Formats a record with only the most important fields for the LLM context.
-    This includes engagement metrics, source information, and content.
     """
     formatted_text = ""
     
-    # Extract basic information
     if 'source' in record and record['source']:
         formatted_text += f"Source: {record['source']}\n"
     
-    # Extract engagement metrics (only the most important ones)
     engagement_metrics = []
     engagement_fields = ['score', 'upvotes', 'downvotes', 'likes', 'comments', 'views', 'engagement', 'retweets', 'shares']
     
@@ -130,10 +140,8 @@ def format_data_for_llm(record: Dict[str, Any]) -> str:
     if engagement_metrics:
         formatted_text += f"Engagement: {', '.join(engagement_metrics)}\n"
     
-    # Extract content (most important part)
     text_content = extract_meaningful_text(record)
     if text_content:
-        # Limit text length to avoid overwhelming the context
         if len(text_content) > MAX_TEXT_LENGTH:
             text_content = text_content[:MAX_TEXT_LENGTH] + "..."
         formatted_text += f"Content: {text_content}\n"
@@ -142,12 +150,10 @@ def format_data_for_llm(record: Dict[str, Any]) -> str:
 
 async def get_cluster_name_from_llm(texts: List[str], cluster_id: int) -> str:
     """Asks the Llama model to generate a concise name for a cluster based on sample texts."""
-    # Filter out any empty strings from the sample texts
     valid_texts = [text for text in texts if text and text.strip()]
     if not valid_texts:
         return f"Cluster {cluster_id}"
 
-    # Take the first 5 non-empty text samples for the prompt
     sample_texts = "\n".join(f"- \"{text[:150].strip()}...\"" for text in valid_texts[:5])
     
     prompt = f"""
@@ -161,7 +167,6 @@ async def get_cluster_name_from_llm(texts: List[str], cluster_id: int) -> str:
     For example: {{"cluster_name": "AI Technology & ChatGPT"}}
     """
     try:
-        # The `await` keyword works correctly now with the AsyncGroq client
         chat_completion = await groq_client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model="llama-3.1-8b-instant",
@@ -176,11 +181,9 @@ async def get_cluster_name_from_llm(texts: List[str], cluster_id: int) -> str:
 
 async def chat_with_clustered_data(question: str, cluster_data: List[Dict[str, Any]], cluster_name: str = None) -> str:
     """Uses the Llama model to answer questions about the clustered data."""
-    # Prepare a summary of the clusters for context
     cluster_summary = {}
     
     if cluster_name:
-        # Filter data to only include the specified cluster
         filtered_data = [item for item in cluster_data if item.get('cluster_name') == cluster_name]
         if not filtered_data:
             return f"I couldn't find any data for the cluster '{cluster_name}'. Available clusters are: {', '.join(set([item.get('cluster_name', 'Unknown') for item in cluster_data]))}"
@@ -190,7 +193,6 @@ async def chat_with_clustered_data(question: str, cluster_data: List[Dict[str, A
     else:
         context_header = "All clustered data:\n\n"
     
-    # Format each item with only the most important data
     for item in cluster_data:
         cluster_id = item.get('cluster_id', -1)
         item_cluster_name = item.get('cluster_name', f'Cluster {cluster_id}')
@@ -198,23 +200,20 @@ async def chat_with_clustered_data(question: str, cluster_data: List[Dict[str, A
         if item_cluster_name not in cluster_summary:
             cluster_summary[item_cluster_name] = []
         
-        # Format the item with only essential data for the LLM context
         formatted_item = format_data_for_llm(item)
         if formatted_item:
             cluster_summary[item_cluster_name].append(formatted_item)
     
-    # Format the context for the LLM - limit items per cluster to reduce token count
     context = context_header
     
     for cluster_name, items in cluster_summary.items():
         context += f"Cluster: {cluster_name}\n"
         context += "Items:\n"
-        for i, item_data in enumerate(items[:MAX_ITEMS_PER_CLUSTER]):  # Limit items to reduce context size
+        for i, item_data in enumerate(items[:MAX_ITEMS_PER_CLUSTER]):
             context += f"Item {i+1}:\n{item_data}\n\n"
         context += "\n"
     
-    # Use a more efficient model for larger contexts
-    model_to_use = "llama-3.1-8b-instant"  # More efficient model
+    model_to_use = "llama-3.1-8b-instant"
     
     prompt = f"""
     You are a data analyst assistant. Based on the following clustered data, answer the user's question.
@@ -236,7 +235,7 @@ async def chat_with_clustered_data(question: str, cluster_data: List[Dict[str, A
             messages=[{"role": "user", "content": prompt}],
             model=model_to_use,
             temperature=0.3,
-            max_tokens=500,  # Limit response length
+            max_tokens=500,
         )
         return chat_completion.choices[0].message.content
     except Exception as e:
@@ -245,28 +244,42 @@ async def chat_with_clustered_data(question: str, cluster_data: List[Dict[str, A
 
 # --- API Endpoints ---
 @app.post("/cluster")
-async def cluster_data(num_clusters: int = 8, limit_per_file: int = 500):
+async def cluster_data(num_clusters: int = 8):
     """
-    Loads a limited sample of data, clusters it, and uses an LLM to generate cluster names.
+    Loads all data with pre-computed embeddings, clusters it, and uses an LLM to generate cluster names.
     """
-    print("🚀 Starting clustering process...")
+    print("🚀 Starting clustering process with pre-computed embeddings...")
     all_records = []
-    files_to_load = ["posts_reddit.json", "posts_youtube.json", "comments_reddit.json", "comments_youtube.json"]
+    embeddings_list = []
     
-    for filename in files_to_load:
-        path = os.path.join(DATA_DIRECTORY, filename)
-        records = read_json_file(path, limit=limit_per_file)
-        all_records.extend(records)
-        print(f"✅ Loaded {len(records)} records from {filename}")
+    # Map original files to embedded files
+    file_mapping = {
+        "posts_reddit.json": "posts_reddit.json",
+        "posts_youtube.json": "posts_youtube.json", 
+        "comments_reddit.json": "comments_reddit.json",
+        "comments_youtube.json": "comments_youtube.json"
+    }
+    
+    for orig_filename, embedded_filename in file_mapping.items():
+        embedded_path = os.path.join(EMBEDDED_DATA_DIRECTORY, embedded_filename)
+        embedded_records = read_embedded_json_file(embedded_path)
+        
+        for record in embedded_records:
+            if 'small_embedding' in record and record['small_embedding'] is not None:
+                all_records.append(record)
+                embeddings_list.append(record['small_embedding'])
+        
+        print(f"✅ Loaded {len(embedded_records)} records with embeddings from {embedded_filename}")
 
     if not all_records:
-        raise HTTPException(status_code=404, detail="No data found in the specified directory.")
+        raise HTTPException(status_code=404, detail="No data with embeddings found in the embedded data directory.")
 
-    texts_to_embed = [extract_meaningful_text(record) for record in all_records]
+    print(f"📊 Total records with embeddings: {len(all_records)}")
     
-    print(f"🧠 Generating embeddings for {len(texts_to_embed)} documents...")
-    embeddings = embedding_model.encode(texts_to_embed, show_progress_bar=True)
-    
+    # Convert embeddings to numpy array
+    embeddings = np.array(embeddings_list)
+    print(f"🧠 Using pre-computed embeddings with shape: {embeddings.shape}")
+
     print(f"🔄 Performing KMeans clustering with {num_clusters} clusters...")
     kmeans = KMeans(n_clusters=num_clusters, random_state=42, n_init='auto')
     cluster_assignments = kmeans.fit_predict(embeddings)
@@ -317,7 +330,6 @@ async def chat_with_data(chat_request: ChatRequest):
             detail="No clustered data available. Please run the /cluster endpoint first or provide data in the request."
         )
     
-    # Use provided data or cached data
     data_to_use = chat_request.cluster_data if chat_request.cluster_data else clustered_data_cache
     
     if not data_to_use:
@@ -328,7 +340,6 @@ async def chat_with_data(chat_request: ChatRequest):
     
     target_cluster_name = None
     
-    # If a cluster name is specified, try to find the best match
     if chat_request.cluster_name:
         available_clusters = list(set([item.get('cluster_name') for item in data_to_use]))
         target_cluster_name = find_best_cluster_match(chat_request.cluster_name, available_clusters)
