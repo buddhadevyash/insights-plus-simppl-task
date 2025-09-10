@@ -73,7 +73,13 @@ I implemented a **real-time interactive dashboard** to centralize insights and p
 
 This dashboard acts as a **command center**, making complex analysis accessible in a single interface.  
 
-![Dashboard](images/dashboard.png)
+<img width="1920" height="1080" alt="Screenshot From 2025-09-11 02-37-10" src="https://github.com/user-attachments/assets/55308df8-e341-4477-8437-fea454f70d58" />
+<img width="1920" height="1080" alt="Screenshot From 2025-09-11 02-37-13" src="https://github.com/user-attachments/assets/aedc77ea-fa14-4148-af23-49a305c8f91e" />
+<img width="1920" height="1080" alt="Screenshot From 2025-09-11 02-37-20" src="https://github.com/user-attachments/assets/eced9a83-67a2-43dd-9e25-6dd23dc92292" />
+<img width="1920" height="1080" alt="Screenshot From 2025-09-11 02-37-36" src="https://github.com/user-attachments/assets/0cce88ed-dda5-463d-9f8b-44164a2786b8" />
+<img width="1920" height="1080" alt="Screenshot From 2025-09-11 02-37-57" src="https://github.com/user-attachments/assets/c74da94a-ece0-4a34-a808-2b855b5419cf" />
+
+
 
 ---
 
@@ -109,16 +115,16 @@ I architected a **graph-based data model** using **Neo4j AuraDB Free Instance** 
 
 This design makes it possible to move beyond static analysis into **relationship-driven insights**.  
 
-![Neo4j Graph](images/neo4j_graph.png)
+<img width="1920" height="1080" alt="Screenshot From 2025-09-11 02-41-03" src="https://github.com/user-attachments/assets/c3736173-6a6c-4e30-8e6e-2a2efd1ddcbf" />
+<img width="1920" height="1080" alt="Screenshot From 2025-09-11 02-41-12" src="https://github.com/user-attachments/assets/3cff1866-b19b-4ac1-8035-f82e0de1d71d" />
 
----
+<img width="1920" height="1080" alt="Screenshot From 2025-09-11 02-41-43" src="https://github.com/user-attachments/assets/1e24cb70-4d2c-4b8a-8247-acb4c0870f1d" />
+<img width="1920" height="1080" alt="Screenshot From 2025-09-11 02-42-03" src="https://github.com/user-attachments/assets/76271283-d2a2-43c3-b8a0-2878bbe29a93" />
+<img width="1920" height="1080" alt="Screenshot From 2025-09-11 02-42-24" src="https://github.com/user-attachments/assets/266639ab-041f-4a93-8191-1d1f728311b8" />
 
-## Tech Stack
 
-- **Frontend**: Next.js  
-- **Backend**: FastAPI (Python)  
-- **Database**: Neo4j  
-- **AI/LLM**: Groq API  
+
+
 
 ---
 
