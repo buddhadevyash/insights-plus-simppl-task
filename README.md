@@ -158,5 +158,21 @@ Follow these steps to set up and run the application on your local machine.
 ---
 
 ## Project Structure
+/
+├── backend/
+│   ├── app/
+│   │   ├── main.py         # The main FastAPI application file
+│   │   └── ...             # Other backend files
+│   ├── json_data/          # Sample JSON data
+│   └── embedded_json_data/ # JSON data with pre-computed embeddings
+│
+├── frontend/
+│   ├── app/                # Next.js application directory
+│   │   ├── page.js         # The main page of the application
+│   │   └── ...             # Other Next.js files
+│   ├── components/         # Reusable React components
+│   └── ...                 # Other frontend files
+│
+└── README.md               # This file
 
 A high-level overview of the project's architecture:
