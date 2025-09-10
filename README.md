@@ -9,7 +9,8 @@ The project leverages a modern and scalable architecture with:
 - **Groq API** for cutting-edge AI-powered analysis.  
 
 ---
-
+    ## 📽️ Demo Video  
+[![Watch the Demo](https://img.youtube.com/vi/yD7N7sRS68E/0.jpg)](https://youtu.be/yD7N7sRS68E)
 # Technical System Overview
 
 This project integrates **conversational AI, clustering, interactive dashboards, graph-based data modeling, and external data augmentation** to deliver advanced insights from YouTube and Reddit datasets. Below is a detailed breakdown of the components I designed.
@@ -265,8 +266,7 @@ Follow these steps to set up and run the application on your local machine.
     insights-plus-simppl-task/
     └── README.md
     ```
-    ## 📽️ Demo Video  
-[![Watch the Demo](https://img.youtube.com/vi/yD7N7sRS68E/0.jpg)](https://youtu.be/yD7N7sRS68E)
+
 
 
 
