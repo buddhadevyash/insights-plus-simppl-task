@@ -43,7 +43,7 @@ NEO4J_URI = os.getenv("NEO4J_URI")
 NEO4J_USER = os.getenv("NEO4J_USER")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 DATA_DIR = Path(__file__).parent.parent / "json_data"
-EMBEDDED_DATA_DIRECTORY = "/home/y21tbh/Documents/insights-plus/insights-plus-simppl-task/backend/embedded_json_data"
+EMBEDDED_DATA_DIRECTORY = "backend/embedded_json_data"
 MAX_ITEMS_PER_CLUSTER = 5
 MAX_TEXT_LENGTH = 200
 
