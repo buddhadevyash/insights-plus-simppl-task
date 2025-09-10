@@ -1465,7 +1465,7 @@ def populate_database():
             
             # Load data
             for file_path, platform in files_to_process.items():
-                                print(f"Processing subset of {os.path.basename(file_path)}...")
+                print(f"Processing subset of {os.path.basename(file_path)}...")
                 records = read_json_file(file_path)
                 if not records:
                     print(f"Warning: No data loaded from {os.path.basename(file_path)}.")
