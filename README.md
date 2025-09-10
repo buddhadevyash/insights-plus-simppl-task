@@ -34,7 +34,7 @@ This design ensures scalability with larger context windows when upgrading beyon
 <img width="1748" height="1013" alt="Screenshot From 2025-09-11 01-30-28" src="https://github.com/user-attachments/assets/9ac901c2-ffc9-4071-bb03-08d7eddb1820" />
 <img width="1748" height="1013" alt="Screenshot From 2025-09-11 01-30-33" src="https://github.com/user-attachments/assets/4df9422b-8401-48b8-83bd-71432c1ff255" />
 <img width="1748" height="1013" alt="Screenshot From 2025-09-11 01-30-36" src="https://github.com/user-attachments/assets/b7802a68-7039-4f3d-8ebe-4f330ec34654" />
-<img width="1748" height="1013" alt="Screenshot From 2025-09-11 01-30-40" src="https://github.com/user-attachments/assets/dc2dfec0-db83-41fe-a543-4b01270b4781" /><img width="1920" height="1080" alt="Screenshot From 2025-09-11 02-29-56" src="https://github.com/user-attachments/assets/3b01c35a-7d8c-4ca0-9b54-5a861ef0b01c" />
+<img width="1748" height="1013" alt="Screenshot From 2025-09-11 01-30-40" src="https://github.com/user-attachments/assets/dc2dfec0-db83-41fe-a543-4b01270b4781" />
 
 <img width="1748" height="1013" alt="Screenshot From 2025-09-11 01-30-42" src="https://github.com/user-attachments/assets/d5a6d7dc-f59d-4a81-a02c-f9585b2f5bed" />
 <img width="1748" height="1013" alt="Screenshot From 2025-09-11 01-30-46" src="https://github.com/user-attachments/assets/94a98424-3f91-4e7b-89bb-d77e4712f1d1" />
@@ -52,11 +52,12 @@ I developed a **semantic clustering pipeline** to automatically group related co
 
 
 This enables me to move seamlessly between **macro-level trend discovery** and **micro-level cluster drilldowns**.  
+<img width="1920" height="1080" alt="Screenshot From 2025-09-11 02-29-52" src="https://github.com/user-attachments/assets/9da42f14-1af9-49c1-996f-d41aeec1dac2" />
+<img width="1920" height="1080" alt="Screenshot From 2025-09-11 02-29-56" src="https://github.com/user-attachments/assets/3b01c35a-7d8c-4ca0-9b54-5a861ef0b01c" />
 
 <img width="1920" height="1080" alt="Screenshot From 2025-09-11 02-30-01" src="https://github.com/user-attachments/assets/e9d1d088-bb53-42b9-9e9c-ad8f13088f70" />
 <img width="1920" height="1080" alt="Screenshot From 2025-09-11 02-31-18" src="https://github.com/user-attachments/assets/e77a50e7-fea2-4194-875c-1b7bf3751105" />
 <img width="1920" height="1080" alt="Screenshot From 2025-09-11 02-30-47" src="https://github.com/user-attachments/assets/23d65030-2a93-4bd6-9325-401fb7b78cbb" />
-<img width="1920" height="1080" alt="Screenshot From 2025-09-11 02-29-52" src="https://github.com/user-attachments/assets/9da42f14-1af9-49c1-996f-d41aeec1dac2" />
 
 
 
