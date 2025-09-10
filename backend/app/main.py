@@ -78,7 +78,7 @@ app = FastAPI(
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://insights-plus-v1.vercel.app", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1544,6 +1544,133 @@ def get_topic_info():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving topic info: {e}")
 
+from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List, Optional, Dict, Any
+import json
+import numpy as np
+from datetime import datetime
+import logging
+from sklearn.neighbors import NearestNeighbors
+import os
+from dotenv import load_dotenv
+import groq
+
+# Load environment variables
+load_dotenv()
+
+# Initialize logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="Neo4j Data Chat API", version="1.0.0")
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Global variables for RAG model
+data_store = None
+embedding_store = None
+knn_model = None
+embedding_model = None
+groq_client = None
+
+# Pydantic models
+class ChatQuery(BaseModel):
+    query: str
+
+class DataLoadRequest(BaseModel):
+    data: List[Dict[str, Any]]
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize the application on startup"""
+    global groq_client
+    try:
+        groq_client = groq.Groq(api_key=os.getenv("GROQ_API_KEY"))
+        logger.info("Groq client initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize Groq client: {e}")
+        groq_client = None
+
+@app.post("/load-data")
+async def load_data(request: DataLoadRequest, background_tasks: BackgroundTasks):
+    """Load data and build RAG model in background"""
+    global data_store, embedding_store, knn_model, embedding_model
+    
+    try:
+        data_store = request.data
+        logger.info(f"Loaded {len(data_store)} data points")
+        
+        # Load embedding model
+        try:
+            from sentence_transformers import SentenceTransformer
+            embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+            logger.info("Embedding model loaded successfully")
+        except Exception as e:
+            logger.error(f"Failed to load embedding model: {e}")
+            raise HTTPException(status_code=500, detail="Embedding model not available")
+        
+        # Process in background to avoid blocking
+        background_tasks.add_task(build_rag_model, data_store, embedding_model)
+        
+        return {"message": f"Data loaded successfully. Processing {len(data_store)} records in background."}
+    
+    except Exception as e:
+        logger.error(f"Error loading data: {e}")
+        raise HTTPException(status_code=500, detail=f"Error loading data: {e}")
+
+def build_rag_model(data, embedding_model):
+    """Build RAG model with embeddings and KNN index"""
+    global embedding_store, knn_model
+    
+    try:
+        # Extract text for embedding
+        texts = []
+        for item in data:
+            text_parts = []
+            if item.get('text'):
+                text_parts.append(item['text'])
+            if item.get('username'):
+                text_parts.append(item['username'])
+            if item.get('platform'):
+                text_parts.append(item['platform'])
+            texts.append(' '.join(text_parts))
+        
+        # Generate embeddings
+        embeddings = embedding_model.encode(texts)
+        embedding_store = embeddings
+        
+        # Build KNN index
+        knn_model = NearestNeighbors(n_neighbors=min(8, len(data)), metric='cosine')
+        knn_model.fit(embeddings)
+        
+        logger.info(f"RAG model built successfully with {len(data)} embeddings")
+        
+    except Exception as e:
+        logger.error(f"Error building RAG model: {e}")
+        embedding_store = None
+        knn_model = None
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "data_loaded": data_store is not None and len(data_store) > 0,
+        "rag_ready": knn_model is not None and embedding_store is not None,
+        "embedding_model_ready": embedding_model is not None,
+        "groq_ready": groq_client is not None,
+        "timestamp": datetime.now().isoformat()
+    }
+
 @app.post("/neo4j-chat")
 async def chat_with_data(query: ChatQuery):
     # Load embedding model only when needed to save memory
@@ -1561,137 +1688,367 @@ async def chat_with_data(query: ChatQuery):
         raise HTTPException(status_code=503, detail="RAG model is not ready. Please wait and try again.")
     
     query_embedding = embedding_model.encode(query.query)
-    distances, indices = knn_model.kneighbors([query_embedding])
+    
+    # Increase to top 8 matching data points only
+    distances, indices = knn_model.kneighbors([query_embedding], n_neighbors=min(8, len(data_store)))
     context_records = [data_store[i] for i in indices[0]]
     
+    # Helper function to safely extract numeric values
+    def safe_extract_number(value, default=0):
+        if value is None:
+            return default
+        try:
+            # Handle JSON strings like '{"likes": 4}'
+            if isinstance(value, str) and value.strip().startswith('{'):
+                import json
+                parsed = json.loads(value)
+                # Extract first numeric value from the JSON object
+                for v in parsed.values():
+                    if isinstance(v, (int, float)):
+                        return float(v)
+                return default
+            # Handle regular numeric strings and numbers
+            return float(value)
+        except (ValueError, TypeError, json.JSONDecodeError):
+            return default
+    
+    # Extract actual data for analysis and visualization
+    users_data = []
+    posts_data = []
+    platforms_data = {}
+    sentiment_data = []
+    engagement_data = []
+    temporal_data = []
+    
+    for record in context_records:
+        # Extract numeric values safely
+        engagement = safe_extract_number(record.get("engagement"))
+        reactions = safe_extract_number(record.get("reactions"))
+        views = safe_extract_number(record.get("views"))
+        
+        # Collect user data
+        if record.get("username"):
+            user_data = {
+                "username": record.get("username"),
+                "platform": record.get("platform"),
+                "engagement": engagement,
+                "reactions": reactions,
+                "views": views
+            }
+            users_data.append(user_data)
+        
+        # Collect post data
+        if record.get("text") and len(record.get("text", "")) > 10:
+            post_data = {
+                "text": record.get("text"),
+                "platform": record.get("platform"),
+                "engagement": engagement,
+                "reactions": reactions,
+                "views": views,
+                "link": record.get("link") or record.get("url"),
+                "timestamp": record.get("timestamp") or record.get("date_of_comment")
+            }
+            posts_data.append(post_data)
+        
+        # Collect platform statistics
+        platform = record.get("platform")
+        if platform:
+            if platform not in platforms_data:
+                platforms_data[platform] = {
+                    "count": 0,
+                    "total_engagement": 0,
+                    "total_reactions": 0,
+                    "total_views": 0
+                }
+            platforms_data[platform]["count"] += 1
+            platforms_data[platform]["total_engagement"] += engagement
+            platforms_data[platform]["total_reactions"] += reactions
+            platforms_data[platform]["total_views"] += views
+        
+        # Collect sentiment data if available
+        if record.get("text_analysis"):
+            try:
+                analysis = record["text_analysis"]
+                if isinstance(analysis, str):
+                    analysis = json.loads(analysis)
+                if "sentiment" in analysis:
+                    sentiment_data.append({
+                        "sentiment": analysis["sentiment"],
+                        "engagement": engagement,
+                        "text": record.get("text", "")[:100]
+                    })
+            except:
+                pass
+        
+        # Collect engagement data for correlation analysis
+        if engagement > 0 or reactions > 0:
+            engagement_data.append({
+                "engagement": engagement,
+                "reactions": reactions,
+                "platform": record.get("platform"),
+                "username": record.get("username")
+            })
+        
+        # Collect temporal data
+        timestamp = record.get("timestamp") or record.get("date_of_comment")
+        if timestamp:
+            temporal_data.append({
+                "timestamp": timestamp,
+                "engagement": engagement,
+                "reactions": reactions,
+                "platform": record.get("platform"),
+                "username": record.get("username")
+            })
+    
+    # Prepare mandatory visualizations - ALL 4 MUST BE PRESENT AND DIFFERENT
+    mandatory_visualizations = []
+    
+    # 1. Bar Chart: Top Users by Reactions (Different from pie)
+    if users_data and len(users_data) > 0:
+        # Sort users by reactions and take top 5
+        sorted_users = sorted(users_data, key=lambda x: x.get("reactions", 0), reverse=True)[:5]
+        usernames = [user.get("username", "Unknown") for user in sorted_users]
+        reactions = [user.get("reactions", 0) for user in sorted_users]
+        
+        mandatory_visualizations.append({
+            "id": "top_users_bar",
+            "type": "bar",
+            "title": "Top Users by Reaction Count",
+            "description": "Bar chart showing users with highest reaction counts in tax discussions",
+            "labels": usernames,
+            "data": reactions,
+            "colors": ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7"][:len(usernames)],
+            "xAxisLabel": "Username",
+            "yAxisLabel": "Number of Reactions",
+            "insights": "Identifies most influential users based on reaction counts in tax policy discussions"
+        })
+    
+    # 2. Pie Chart: Platform Distribution (Different from bar)
+    if platforms_data:
+        platforms = list(platforms_data.keys())
+        # If no platform data, use "Unknown" as default
+        if not platforms:
+            platforms = ["Unknown"]
+            platform_counts = [len(users_data)]
+        else:
+            platform_counts = [platforms_data[platform]["count"] for platform in platforms]
+        
+        mandatory_visualizations.append({
+            "id": "platform_distribution_pie",
+            "type": "pie",
+            "title": "Content Distribution by Platform",
+            "description": "Pie chart showing distribution of tax discussion content across platforms",
+            "labels": platforms,
+            "data": platform_counts,
+            "colors": ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7"][:len(platforms)],
+            "xAxisLabel": "Platform",
+            "yAxisLabel": "Number of Posts",
+            "insights": "Shows which platforms host the majority of tax policy discussions"
+        })
+    
+    # 3. Line Chart: Temporal Reaction Trends (Different from others)
+    if temporal_data and len(temporal_data) > 1:
+        # Sort by timestamp and use reaction counts
+        temporal_data.sort(key=lambda x: x.get("timestamp", ""))
+        time_labels = []
+        reaction_values = []
+        
+        for i, item in enumerate(temporal_data):
+            if item.get("timestamp"):
+                # Use simplified date format
+                time_labels.append(str(item["timestamp"])[:10])
+            else:
+                time_labels.append(f"Post {i+1}")
+            reaction_values.append(item.get("reactions", 0))
+        
+        mandatory_visualizations.append({
+            "id": "reaction_timeline",
+            "type": "line",
+            "title": "Reaction Trends Over Time",
+            "description": "Line chart showing reaction count trends throughout tax discussion period",
+            "labels": time_labels,
+            "data": reaction_values,
+            "colors": ["#4ECDC4"],
+            "xAxisLabel": "Time",
+            "yAxisLabel": "Reaction Count",
+            "insights": "Shows temporal patterns and peaks in user engagement with tax content"
+        })
+    
+    # 4. Scatter Plot: Post Length vs Reactions (Different meaningful correlation)
+    if posts_data and len(posts_data) > 1:
+        # Use post text length as x-axis, reactions as y-axis
+        post_lengths = []
+        reaction_values = []
+        scatter_labels = []
+        
+        for post in posts_data:
+            text = post.get("text", "")
+            if text:
+                post_lengths.append(len(text))
+                reaction_values.append(post.get("reactions", 0))
+                # Use first few words as label
+                words = text.split()[:3]
+                scatter_labels.append(" ".join(words) + "...")
+        
+        # Ensure we have valid data for scatter plot
+        if post_lengths and reaction_values and len(post_lengths) == len(reaction_values):
+            mandatory_visualizations.append({
+                "id": "length_vs_reactions_scatter",
+                "type": "scatter",
+                "title": "Post Length vs Reaction Correlation",
+                "description": "Scatter plot analyzing relationship between post length and reaction counts",
+                "labels": scatter_labels,
+                "data": post_lengths,  # X-axis: post length
+                "secondary_data": reaction_values,  # Y-axis: reactions
+                "colors": ["#45B7D1"] * len(post_lengths),
+                "xAxisLabel": "Post Length (characters)",
+                "yAxisLabel": "Reaction Count",
+                "insights": "Analyzes whether longer posts generate more reactions in tax discussions"
+            })
+        else:
+            # Fallback: User engagement vs reactions if post length not available
+            if engagement_data and len(engagement_data) > 1:
+                engagement_values = [item.get("engagement", 0) for item in engagement_data]
+                reaction_values = [item.get("reactions", 0) for item in engagement_data]
+                scatter_labels = [f"Post {i+1}" for i in range(len(engagement_data))]
+                
+                mandatory_visualizations.append({
+                    "id": "engagement_vs_reactions_scatter",
+                    "type": "scatter",
+                    "title": "Engagement vs Reactions Analysis",
+                    "description": "Scatter plot showing relationship between engagement and reaction metrics",
+                    "labels": scatter_labels,
+                    "data": engagement_values,
+                    "secondary_data": reaction_values,
+                    "colors": ["#45B7D1"] * len(engagement_data),
+                    "xAxisLabel": "Engagement Score",
+                    "yAxisLabel": "Reaction Count",
+                    "insights": "Correlation analysis between different engagement metrics"
+                })
+    
+    # Prepare context string for LLM
     cleaned_context = []
     for record in context_records:
         cleaned_record = {
-            "platform": record.get("platform"), "username": record.get("username"),
-            "text": record.get("text"), "reactions": record.get("reactions"),
-            "engagement": record.get("engagement"), "views": record.get("views"),
+            "platform": record.get("platform"), 
+            "username": record.get("username"),
+            "text": record.get("text"), 
+            "reactions": record.get("reactions"),
+            "engagement": record.get("engagement"), 
+            "views": record.get("views"),
             "timestamp": record.get("timestamp") or record.get("date_of_comment"),
-            "text_analysis": record.get("text_analysis")
+            "text_analysis": record.get("text_analysis"),
+            "link": record.get("link") or record.get("url")
         }
         cleaned_context.append({k: v for k, v in cleaned_record.items() if v is not None})
         
     context_str = json.dumps(cleaned_context, indent=2)
 
-    # --- Enhanced Comprehensive Prompt ---
+    # --- Enhanced Prompt with Statistical Analysis and Visualizations ---
     prompt = f"""
-    You are a senior data analyst and insights expert. Your task is to provide a comprehensive, detailed analysis based on the user's question and the provided data context.
+    You are a senior data analyst providing comprehensive analysis with statistical rigor and actionable insights.
 
     User Question: "{query.query}"
 
-    Data Context:
-    json
+    Data Context (Top {len(context_records)} relevant records):
     {context_str}
-    
+
+    CRITICAL INSTRUCTIONS:
+    1. ALWAYS use ACTUAL usernames from the data: {[user.get('username') for user in users_data if user.get('username')]}
+    2. NEVER use generic names like "UserA", "UserB", "Post1", "Post2"
+    3. Use the specific usernames and post content from the provided data
+    4. Ensure all 4 visualizations show different aspects of the data
+    5. Use full statistical terminology with proper explanations
 
     Your response MUST be a single, valid JSON object with the following structure:
 
     {{
-        "summary": {{
-            "overview": "A 2-3 sentence high-level summary of what the analysis reveals",
-            "key_metrics": "Brief mention of the most important numbers/metrics found",
-            "primary_insight": "The single most important finding or trend"
-        }},
-        "report": {{
-            "detailed_analysis": "A comprehensive 200-300 word analysis covering patterns, trends, user behaviors, platform differences, temporal aspects, and any notable anomalies or insights. Be specific about numbers, percentages, and concrete observations.",
-            "key_findings": [
-                "At least 5-7 specific, data-driven bullet points with concrete numbers where possible",
-                "Include platform comparisons, user behavior patterns, engagement metrics",
-                "Mention specific usernames, dates, or content types when relevant",
-                "Highlight any surprising or counterintuitive findings",
-                "Include sentiment/emotion analysis if present in data"
+        "natural_response": {{
+            "summary": "A clear, direct 2-3 sentence answer using ACTUAL usernames from the data",
+            "key_points": [
+                "Bullet point 1: Main finding with actual usernames",
+                "Bullet point 2: Secondary finding with specific data",
+                "Bullet point 3: Additional insight with real examples",
+                "Bullet point 4: Platform-specific insight",
+                "Bullet point 5: User behavior pattern with actual names"
             ],
             "actionable_insights": [
-                "4-6 strategic recommendations based on the data analysis",
-                "Include specific actions that could be taken",
-                "Mention potential opportunities or risks identified",
-                "Suggest areas for further investigation or monitoring"
+                "Actionable recommendation 1 based on findings",
+                "Actionable recommendation 2 based on findings", 
+                "Actionable recommendation 3 for implementation",
+                "Actionable recommendation 4 for optimization",
+                "Actionable recommendation 5 for monitoring"
+            ]
+        }},
+        "statistical_analysis": {{
+            "inferential_statistics": "Detailed statistical analysis using full terminology",
+            "correlation_analysis": "Correlation analysis with full explanations",
+            "trend_analysis": "Trend analysis with proper statistical terms",
+            "data_quality_assessment": "Assessment of data quality and limitations",
+            "methodology": "Explanation of statistical methods used"
+        }},
+        "detailed_report": {{
+            "comprehensive_analysis": "Detailed analysis using actual usernames and specific data",
+            "platform_comparison": "Platform comparison with real data",
+            "user_behavior_analysis": "User behavior analysis with specific examples",
+            "content_performance": "Content performance evaluation",
+            "limitations_and_caveats": "Honest assessment of limitations"
+        }},
+        "top_results": {{
+            "top_users": [
+                {{
+                    "username": "actual_username_from_data",
+                    "platform": "platform_name",
+                    "engagement_score": 1500,
+                    "reactions": 200,
+                    "rank": 1
+                }}
             ],
-            "data_quality_notes": "Brief assessment of data completeness, limitations, or caveats",
-            "methodology": "Explanation of how the analysis was conducted and what data sources were used"
+            "top_posts": [
+                {{
+                    "title": "Actual post title or excerpt from data",
+                    "platform": "platform_name", 
+                    "engagement": 1800,
+                    "reactions": 250,
+                    "link": "url_if_available",
+                    "rank": 1
+                }}
+            ]
         }},
         "visualizations": [
-            // Generate 2-4 relevant visualizations ONLY if data supports meaningful charts
-            // Each visualization MUST follow this EXACT structure with proper JSON formatting:
-            {{
-                "id": "unique_chart_id_1",
-                "type": "bar",  // ONLY use: "bar", "line", or "pie"
-                "title": "Clear, specific title describing what is being measured",
-                "description": "Detailed explanation of what this chart shows and its significance",
-                "labels": ["Label1", "Label2", "Label3"],  // MUST be array of strings, exact same length as data
-                "data": [123.45, 67.89, 234.56],  // MUST be array of numbers, exact same length as labels
-                "colors": ["#FF6B6B", "#4ECDC4", "#45B7D1"],  // Optional: same length as labels
-                "xAxisLabel": "What the X-axis represents",
-                "yAxisLabel": "What the Y-axis represents (with units if applicable)",
-                "insights": "Key patterns or insights this visualization reveals"
-            }}
+            // MANDATORY: Include bar, pie, line, and scatter plots with real data
+            // Each visualization MUST show different aspects of the data
         ],
         "metadata": {{
-            "analysis_timestamp": "2024-Current",
-            "data_points_analyzed": "{len(context_records)}",
-            "platforms_covered": ["List of platforms in the data"],
-            "time_range": "Date range of the analyzed data if available",
-            "confidence_level": "High|Medium|Low based on data quality and completeness"
+            "analysis_timestamp": "2024-{datetime.now().strftime('%m-%d')}",
+            "data_points_analyzed": {len(context_records)},
+            "platforms_covered": {list(platforms_data.keys())},
+            "statistical_confidence": "High|Medium|Low",
+            "analysis_depth": "Comprehensive|Moderate|Basic"
         }}
     }}
 
-    CRITICAL VISUALIZATION REQUIREMENTS:
-    1. ALWAYS ensure labels and data arrays have EXACTLY the same length
-    2. Use realistic, reasonable numbers in data arrays (avoid very large concatenated numbers)
-    3. Format data as proper JSON arrays: [value1, value2, value3] with commas between values
-    4. Count actual data points from the context to determine array lengths
-    5. Only generate visualizations if you have sufficient data to support them
-    6. Use meaningful, descriptive titles that reflect the actual data being shown
-    7. Ensure data values make sense in context (engagement numbers should be reasonable)
+    EXAMPLE WITH ACTUAL NAMES:
+    "The most influential accounts in tax discussions are TinyNuggins92, hellowiththepudding, and Gnoll_For_Initiative. 
+    TinyNuggins92's post about tax rates received 20 reactions, making it the most engaged content in the discussion."
 
-    EXAMPLE BASED ON SAMPLE DATA:
-    If you have 5 users with engagement [1707, 573, 86, 57, 0], create:
-    "labels": ["Explain AI Fast", "technestmedia", "@inayakausari", "@Optimus113-prime", "@sumpreet1234"]
-    "data": [1707, 573, 86, 57, 0]
-    
-    If you have 2 platforms with engagement [2280, 143], create:
-    "labels": ["YouTube", "Twitter"]
-    "data": [2280, 143]
-
-    NEVER create arrays like:
-    ❌ "data": [170757386570] for 5 labels
-    ❌ "data": ["46.3615.3238.33"] 
-    ❌ Labels with 5 items but data with 1 item
-
-    EXAMPLES OF VALID DATA ARRAYS:
-    ✅ CORRECT: "data": [15.5, 23.2, 8.7, 45.1]
-    ✅ CORRECT: "data": [100, 250, 75, 300]
-    ✅ CORRECT: "data": [0.5, 0.3, 0.2]
-    ❌ WRONG: "data": ["15.523.28.745.1"]
-    ❌ WRONG: "data": "15.523.28.7"
-    ❌ WRONG: "data": [15.5, "23.2", null, 45.1]
-    ❌ WRONG: "data": ["46.3615.3238.33"]
-
-    CRITICAL REQUIREMENTS:
-    1. Make the analysis substantially detailed and insightful (aim for depth over brevity)
-    2. Always include specific numbers, percentages, and concrete data points
-    3. Include platform-specific insights (Reddit vs YouTube differences)
-    4. Mention specific usernames, engagement levels, sentiment scores when available
-    5. Be analytical and professional, but also highlight interesting or unexpected patterns
-    6. Ensure all JSON is properly formatted and valid
-    7. Generate meaningful visualizations when data supports it (engagement comparisons, sentiment analysis, platform metrics, user performance, etc.)
+    AVOID GENERIC TERMS:
+    ❌ "UserA, UserB, and UserC"
+    ❌ "Post1, Post2, Post3"  
+    ✅ "TinyNuggins92, hellowiththepudding, Gnoll_For_Initiative"
+    ✅ "The post about tax rates received 20 reactions"
     """
 
     try:
         chat_completion = groq_client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
-            model="llama-3.1-8b-instant",  # Use smaller model for free tier
+            model="llama-3.1-8b-instant",
             temperature=0.1,
             response_format={"type": "json_object"},
-            max_tokens=2000  # Reduce token limit for free tier
+            max_tokens=4000
         )
         response_content = chat_completion.choices[0].message.content
         
-        # Parse and validate the JSON from the LLM
         try:
             llm_output = json.loads(response_content)
         except json.JSONDecodeError as e:
@@ -1699,35 +2056,145 @@ async def chat_with_data(query: ChatQuery):
             print(f"Raw response: {response_content[:500]}...")
             raise HTTPException(status_code=500, detail=f"Failed to parse LLM response as JSON: {e}")
         
-        # Ensure required structure exists
-        if "summary" not in llm_output:
-            llm_output["summary"] = {
-                "overview": "Analysis completed based on available data",
-                "key_metrics": "Various metrics analyzed from the dataset",
-                "primary_insight": "Key patterns identified in the data"
-            }
+        # --- Data Validation and Enhancement ---
         
-        if "report" not in llm_output:
-            llm_output["report"] = {
-                "detailed_analysis": "Comprehensive analysis of the provided data context.",
-                "key_findings": ["Analysis completed successfully"],
-                "actionable_insights": ["Further analysis recommended"],
-                "data_quality_notes": "Data processed successfully",
-                "methodology": "RAG-based analysis with embedding similarity search"
-            }
+        # Ensure required sections exist
+        for section in ["natural_response", "statistical_analysis", "detailed_report"]:
+            if section not in llm_output:
+                llm_output[section] = {}
         
+        # Ensure natural response uses actual names (not UserA, UserB, etc.)
+        natural_response = llm_output.get("natural_response", {})
+        if "summary" in natural_response:
+            # Replace generic names with actual names from data
+            summary = natural_response["summary"]
+            for user in users_data:
+                if user.get("username"):
+                    username = user["username"]
+                    summary = summary.replace("UserA", username)
+                    summary = summary.replace("UserB", username)
+                    summary = summary.replace("UserC", username)
+                    summary = summary.replace("user A", username)
+                    summary = summary.replace("user B", username)
+                    summary = summary.replace("user C", username)
+            llm_output["natural_response"]["summary"] = summary
+        
+        # Ensure key points use actual names
+        if "key_points" in natural_response:
+            updated_points = []
+            for point in natural_response["key_points"]:
+                for user in users_data:
+                    if user.get("username"):
+                        username = user["username"]
+                        point = point.replace("UserA", username)
+                        point = point.replace("UserB", username)
+                        point = point.replace("UserC", username)
+                updated_points.append(point)
+            llm_output["natural_response"]["key_points"] = updated_points
+        
+        # Add actual top users and posts from our extracted data
+        if "top_results" not in llm_output:
+            llm_output["top_results"] = {}
+        
+        # Add actual top users (sorted by reactions since engagement is 0)
+        if users_data:
+            sorted_users = sorted(users_data, key=lambda x: x.get("reactions", 0), reverse=True)[:10]
+            llm_output["top_results"]["top_users"] = [
+                {
+                    "username": user.get("username", "Unknown"),
+                    "platform": user.get("platform", "Unknown"),
+                    "engagement_score": user.get("engagement", 0),
+                    "reactions": user.get("reactions", 0),
+                    "views": user.get("views", 0),
+                    "rank": i + 1
+                }
+                for i, user in enumerate(sorted_users)
+            ]
+        
+        # Add actual top posts (sorted by reactions since engagement is 0)
+        if posts_data:
+            sorted_posts = sorted(posts_data, key=lambda x: x.get("reactions", 0), reverse=True)[:10]
+            llm_output["top_results"]["top_posts"] = [
+                {
+                    "title": post.get("text", "No title")[:100] + "..." if len(post.get("text", "")) > 100 else post.get("text", "No title"),
+                    "platform": post.get("platform", "Unknown"),
+                    "engagement": post.get("engagement", 0),
+                    "reactions": post.get("reactions", 0),
+                    "views": post.get("views", 0),
+                    "link": post.get("link"),
+                    "timestamp": post.get("timestamp"),
+                    "rank": i + 1
+                }
+                for i, post in enumerate(sorted_posts)
+            ]
+        
+        # Handle visualizations - USE MANDATORY VISUALIZATIONS ONLY (different aspects)
+        llm_output["visualizations"] = mandatory_visualizations
+        
+        # Ensure we have exactly 4 different visualizations
+        if len(llm_output["visualizations"]) < 4:
+            # Create additional unique visualizations if needed
+            visualization_types = set([viz.get("type") for viz in llm_output["visualizations"]])
+            missing_types = ["bar", "pie", "line", "scatter"]
+            
+            for viz_type in missing_types:
+                if viz_type not in visualization_types:
+                    # Create unique visualization for missing type
+                    if viz_type == "bar" and users_data:
+                        # Create a different bar chart (e.g., by platform if available)
+                        if platforms_data:
+                            platforms = list(platforms_data.keys())
+                            reaction_totals = [platforms_data[platform]["total_reactions"] for platform in platforms]
+                            llm_output["visualizations"].append({
+                                "id": "platform_reactions_bar",
+                                "type": "bar",
+                                "title": "Total Reactions by Platform",
+                                "description": "Bar chart showing total reactions across different platforms",
+                                "labels": platforms,
+                                "data": reaction_totals,
+                                "xAxisLabel": "Platform",
+                                "yAxisLabel": "Total Reactions",
+                                "insights": "Platform comparison of total reaction counts in tax discussions"
+                            })
+                    
+                    elif viz_type == "scatter":
+                        # Create meaningful scatter plot with available data
+                        if len(users_data) > 1:
+                            usernames = [user.get("username", f"User{i}") for i, user in enumerate(users_data)]
+                            reactions = [user.get("reactions", 0) for user in users_data]
+                            # Use sequence as x-axis if no other meaningful metric
+                            x_values = list(range(1, len(users_data) + 1))
+                            
+                            llm_output["visualizations"].append({
+                                "id": "user_sequence_scatter",
+                                "type": "scatter",
+                                "title": "User Engagement Sequence",
+                                "description": "Scatter plot showing user engagement in sequence",
+                                "labels": usernames,
+                                "data": x_values,
+                                "secondary_data": reactions,
+                                "xAxisLabel": "User Sequence",
+                                "yAxisLabel": "Reaction Count",
+                                "insights": "Distribution of user engagement across the dataset"
+                            })
+        
+        # Ensure metadata is properly populated
         if "metadata" not in llm_output:
-            llm_output["metadata"] = {
-                "analysis_timestamp": "2024-Current",
-                "data_points_analyzed": len(context_records),
-                "platforms_covered": list(set([r.get("platform") for r in context_records if r.get("platform")])),
-                "confidence_level": "Medium"
-            }
-
-        # Validate and clean visualizations
-        validated_output = validate_and_clean_visualizations(llm_output)
+            llm_output["metadata"] = {}
         
-        return validated_output
+        llm_output["metadata"].update({
+            "data_points_analyzed": len(context_records),
+            "platforms_covered": list(platforms_data.keys()),
+            "analysis_timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "unique_users_count": len(set([u.get('username') for u in users_data if u.get('username')])),
+            "total_posts_analyzed": len(posts_data),
+            "visualization_count": len(llm_output["visualizations"]),
+            "mandatory_visualizations": ["bar", "pie", "line", "scatter"],
+            "sample_size_n": len(context_records),
+            "visualization_types": list(set([viz.get("type") for viz in llm_output["visualizations"]]))
+        })
+        
+        return llm_output
 
     except Exception as e:
         print(f"❌ Error in chat endpoint: {e}")
@@ -1755,6 +2222,10 @@ def health_check():
 async def startup_event():
     global data_store, embedding_store, knn_model
     logger.info("🚀 Application startup: Loading data and training retrieval model...")
+    # Initialize data_store as empty list if it's None
+    if data_store is None:
+        data_store = []
+            
     
     # Pre-load data cache
     for filename in ["comments_reddit.json", "posts_reddit.json", "comments_youtube.json", "posts_youtube.json"]:

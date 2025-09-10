@@ -124,12 +124,26 @@ def find_best_cluster_match(cluster_name: str, available_clusters: List[str], th
 def format_data_for_llm(record: Dict[str, Any]) -> str:
     """
     Formats a record with only the most important fields for the LLM context.
+    Uses username and title instead of generic "Item X" format.
     """
     formatted_text = ""
     
+    # Add username if available
+    username = record.get('username') or record.get('author') or record.get('user') or 'Unknown User'
+    formatted_text += f"User: {username}\n"
+    
+    # Add title if available
+    title = record.get('title') or record.get('post_title') or ''
+    if title:
+        if len(title) > MAX_TEXT_LENGTH:
+            title = title[:MAX_TEXT_LENGTH] + "..."
+        formatted_text += f"Title: {title}\n"
+    
+    # Add source if available
     if 'source' in record and record['source']:
         formatted_text += f"Source: {record['source']}\n"
     
+    # Add engagement metrics
     engagement_metrics = []
     engagement_fields = ['score', 'upvotes', 'downvotes', 'likes', 'comments', 'views', 'engagement', 'retweets', 'shares']
     
@@ -140,8 +154,9 @@ def format_data_for_llm(record: Dict[str, Any]) -> str:
     if engagement_metrics:
         formatted_text += f"Engagement: {', '.join(engagement_metrics)}\n"
     
+    # Add content if available (truncated)
     text_content = extract_meaningful_text(record)
-    if text_content:
+    if text_content and not title:  # Only add content if we don't have a title
         if len(text_content) > MAX_TEXT_LENGTH:
             text_content = text_content[:MAX_TEXT_LENGTH] + "..."
         formatted_text += f"Content: {text_content}\n"
@@ -210,20 +225,25 @@ async def chat_with_clustered_data(question: str, cluster_data: List[Dict[str, A
         context += f"Cluster: {cluster_name}\n"
         context += "Items:\n"
         for i, item_data in enumerate(items[:MAX_ITEMS_PER_CLUSTER]):
-            context += f"Item {i+1}:\n{item_data}\n\n"
+            # Extract username from the formatted data for better identification
+            username_match = re.search(r'User: (.+)', item_data)
+            username = username_match.group(1) if username_match else f"Item {i+1}"
+            
+            context += f"{username}:\n{item_data}\n\n"
         context += "\n"
     
     model_to_use = "llama-3.1-8b-instant"
     
     prompt = f"""
     You are a data analyst assistant. Based on the following clustered data, answer the user's question.
-    Each item includes its content and engagement metrics (likes, comments, views, etc.) when available.
+    Each item includes the username, title/content, and engagement metrics (likes, comments, views, etc.) when available.
     
     {context}
     
     Question: {question}
     
     Please provide a comprehensive answer based on the data. Analyze engagement metrics when relevant to the question.
+    When referring to specific items, use the username and title information instead of generic "Item X" format.
     If the question cannot be answered with the available data, politely explain that and suggest what kind of data would be needed to answer it.
     
     Your response should be in a conversational tone and include insights about the clusters when relevant.
@@ -263,6 +283,8 @@ async def cluster_data(num_clusters: int = 8):
     for orig_filename, embedded_filename in file_mapping.items():
         embedded_path = os.path.join(EMBEDDED_DATA_DIRECTORY, embedded_filename)
         embedded_records = read_embedded_json_file(embedded_path)
+        
+        embedded_records = embedded_records[:500]
         
         for record in embedded_records:
             if 'small_embedding' in record and record['small_embedding'] is not None:

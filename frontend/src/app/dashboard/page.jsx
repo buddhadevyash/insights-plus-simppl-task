@@ -294,7 +294,7 @@ export default function DashboardPage() {
       setError(null);
 
       try {
-        const response = await fetch('http://localhost:8001/dashboard', {
+        const response = await fetch('http://localhost:8002/dashboard',{
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
