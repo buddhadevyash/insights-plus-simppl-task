@@ -22,7 +22,7 @@ I designed a **conversational analytics engine** that transforms raw social medi
 
 - **Embedding Generation:** Used `all-MiniLM-L6-v2` to convert unstructured text (posts, comments, discussions) into semantic embeddings.  
 - **Similarity Search:** Leveraged **cosine similarity** with **KNN retrieval** using embeddings from **`all-MiniLM-L6-v2`** to extract the most contextually relevant posts.
-**Context Optimization:** Limited query expansion to the **≤8000 token cap** of Groq’s free tier by dynamically pruning low-confidence results.  
+**Context Optimization:** Limits the prompt to top relevant records to respect Groq’s token limits, dynamically pruning less relevant content.
 - **Reporting Framework:**  
   - **Summary Reports** → key engagement metrics, sentiment distributions, and posting frequencies.  
   - **Detailed Drilldowns** → fine-grained insights at the post/comment level.  
