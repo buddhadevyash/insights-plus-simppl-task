@@ -1,4 +1,4 @@
-# Social Media Insights Dashboard & AI Analyst
+# Insights Plus: Social Media Insights Analyst
 
 This AI-driven web application provides a comprehensive solution for **analyzing and visualizing social media data** from YouTube and Reddit. It transforms raw data into actionable intelligence, empowering users to uncover insights, monitor engagement, and interact with data using natural language queries.  
 
@@ -30,6 +30,7 @@ I designed a **conversational analytics engine** that transforms raw social medi
 - **Inference Engine:** Integrated **OpenAI OSS 20B** on Groq, balancing performance with low-latency response times.  
 
 This design ensures scalability with larger context windows when upgrading beyond free-tier Groq limits.  
+<img width="1748" height="1013" alt="Screenshot From 2025-09-11 01-30-10" src="https://github.com/user-attachments/assets/39ff6b1d-06b1-4bb2-be96-9f49be4423d4" />
 
 <img width="1748" height="1013" alt="Screenshot From 2025-09-11 01-30-21" src="https://github.com/user-attachments/assets/cbdd440b-a14f-438e-b7f2-40ad254c6c03" />
 <img width="1748" height="1013" alt="Screenshot From 2025-09-11 01-30-28" src="https://github.com/user-attachments/assets/9ac901c2-ffc9-4071-bb03-08d7eddb1820" />
