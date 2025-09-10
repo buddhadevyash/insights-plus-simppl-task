@@ -16,7 +16,6 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, validator
 from neo4j import GraphDatabase, exceptions
-from sentence_transformers import SentenceTransformer
 from sklearn.neighbors import NearestNeighbors
 from sklearn.cluster import KMeans
 from groq import Groq, AsyncGroq
@@ -63,7 +62,8 @@ except Exception as e:
     logger.error(f"Failed to initialize Neo4j driver: {e}")
     driver = None
 
-embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+# Embedding model will be loaded only when needed
+embedding_model = None
 
 # Thread pool for async operations
 executor = ThreadPoolExecutor(max_workers=4)
@@ -1465,14 +1465,14 @@ def populate_database():
             
             # Load data
             for file_path, platform in files_to_process.items():
-                print(f"Processing subset of {os.path.basename(file_path)}...")
+                                print(f"Processing subset of {os.path.basename(file_path)}...")
                 records = read_json_file(file_path)
                 if not records:
                     print(f"Warning: No data loaded from {os.path.basename(file_path)}.")
                     continue
-                subset = records
+                subset = records[:100]  # Limit to 100 records per file for free tier
                 session.write_transaction(load_data_with_clusters_and_topics, subset, platform)
-                print(f"Successfully processed subset from {os.path.basename(file_path)} with cluster assignments.")
+                print(f"Successfully processed {len(subset)} records from {os.path.basename(file_path)} with cluster assignments.")
                 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {e}")
@@ -1546,6 +1546,17 @@ def get_topic_info():
 
 @app.post("/neo4j-chat")
 async def chat_with_data(query: ChatQuery):
+    # Load embedding model only when needed to save memory
+    global embedding_model
+    if embedding_model is None:
+        try:
+            from sentence_transformers import SentenceTransformer
+            embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+            logger.info("Embedding model loaded on demand")
+        except Exception as e:
+            logger.error(f"Failed to load embedding model: {e}")
+            raise HTTPException(status_code=500, detail="Embedding model not available")
+    
     if not data_store or embedding_store is None or knn_model is None:
         raise HTTPException(status_code=503, detail="RAG model is not ready. Please wait and try again.")
     
@@ -1673,10 +1684,10 @@ async def chat_with_data(query: ChatQuery):
     try:
         chat_completion = groq_client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-8b-instant",  # Use smaller model for free tier
             temperature=0.1,
             response_format={"type": "json_object"},
-            max_tokens=4000
+            max_tokens=2000  # Reduce token limit for free tier
         )
         response_content = chat_completion.choices[0].message.content
         
@@ -1782,11 +1793,8 @@ async def startup_event():
                     temp_embeddings.append(embedding)
                 else:
                     # Fallback: generate embedding if not found in data
-                    text_to_embed = record.get("text") or record.get("content") or record.get("body") or record.get("raw_text") or ""
-                    logger.info(f"⚠️  No existing embedding found, generating new one for record with id: {record.get('id', 'unknown')}")
-                    temp_embeddings.append(embedding_model.encode(str(text_to_embed)))
-        else:
-            logger.warning(f"  ⚠️ Warning: No records loaded from {os.path.basename(file_path)}. Check the file path.")
+                    # For free tier, we'll skip generating embeddings to save memory
+                    logger.warning(f"⚠️  No existing embedding found for record with id: {record.get('id', 'unknown')}. Skipping.")
     
     if not temp_embeddings:
         logger.error("❌ CRITICAL ERROR: No embeddings loaded. Chat agent will not work.")
@@ -1812,4 +1820,5 @@ app.include_router(data_routes.router, prefix="/api", tags=["Data Endpoints"])
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
