@@ -570,7 +570,7 @@ def startup_event():
     print(f"✅ Startup complete. Loaded {len(data_store)} total records. Retrieval model is ready.")
 
 # --- API Endpoints ---
-@app.post("/populate-database", status_code=200)
+@app.post("/c-database", status_code=200)
 def populate_database():
     base_path = "/home/y21tbh/Documents/insights-plus/insights-plus-simppl-task/backend/json_data"
     files_to_process = {
