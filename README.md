@@ -3,7 +3,7 @@
 This AI-driven web application provides a comprehensive solution for **analyzing and visualizing social media data** from YouTube and Reddit. It transforms raw data into actionable intelligence, empowering users to uncover insights, monitor engagement, and interact with data using natural language queries.  
 
 The project leverages a modern and scalable architecture with:  
-- **Next.js** for a responsive frontend.  
+- **Next.js, Javascript, ShadCN, Vis.js** for a responsive frontend.  
 - **FastAPI** with Python for a high-performance backend.  
 - **Neo4j** for graph-based data modeling.  
 - **Groq API** for cutting-edge AI-powered analysis.  
@@ -47,7 +47,7 @@ This design ensures scalability with larger context windows when upgrading beyon
 ### 2. Cluster Querying & Tag-Based Exploration  
 I developed a **semantic clustering pipeline** to automatically group related content into coherent themes, enabling both visualization and direct query access.  
 
-- **Clustering:** Applied **KMeans** on embeddings to form **top-k thematic clusters**, capturing high-level discussion topics.  
+- **Clustering:** Applied **KMeans** on embeddings to form **top-k thematic clusters**, capturing high-level discussion topics, mapped dynamically by Vis.js on the frontend.  
 - **Cluster Querying:** Implemented a `@ClusterName` tagging system, inspired by WhatsApp mentions, for easy referencing of specific clusters.  
 - **Visualization:** Generated **cluster visualizations** to observe data point distributions, intra-cluster cohesion, and inter-cluster separation.  
 - **Cluster Labeling:** Leveraged **LLaMA 8.1-Instant** to automatically assign descriptive, human-readable names to clusters (e.g., *AI Research Trends*, *Gaming Hardware*, *Community Feedback*).  
