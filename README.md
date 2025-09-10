@@ -86,7 +86,11 @@ As a future extension, I scoped out **News API integration** to contextualize pl
 
 This paves the way for **holistic reporting** that is not only platform-specific but also globally aware.  
 
-![News API](images/news_api.png)
+
+<img width="1920" height="1080" alt="Screenshot From 2025-09-11 02-34-57" src="https://github.com/user-attachments/assets/0c6141af-9dc9-462b-831e-477576652cb0" />
+<img width="1920" height="1080" alt="Screenshot From 2025-09-11 02-35-02" src="https://github.com/user-attachments/assets/886f5a78-3928-4489-8f7a-2ea49a060a66" />
+<img width="1920" height="1080" alt="Screenshot From 2025-09-11 02-35-14" src="https://github.com/user-attachments/assets/511748d6-bc2a-4742-bd13-934ceb03ff57" />
+
 
 ---
 
