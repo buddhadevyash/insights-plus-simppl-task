@@ -240,5 +240,8 @@ Follow these steps to set up and run the application on your local machine.
     insights-plus-simppl-task/
     └── README.md
     ```
+    ## 📽️ Demo Video  
+[![Watch the Demo](https://img.youtube.com/vi/yD7N7sRS68E/0.jpg)](https://youtu.be/yD7N7sRS68E)
+
 
 
