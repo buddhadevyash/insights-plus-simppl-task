@@ -36,7 +36,7 @@ const SAFE_COLORS = {
 };
 
 // --- Constants ---
-const API_ENDPOINT = process.env.FASTAPI;
+const API_ENDPOINT = process.env.NEXT_PUBLIC_FASTAPI;
 const EXEMPLAR_PROMPTS = [
   "discussions regarding openai",
   "Generate a sales report for last quarter",
@@ -225,7 +225,7 @@ const useApiCall = () => {
     if (abortControllerRef.current) abortControllerRef.current.abort();
     abortControllerRef.current = new AbortController();
     try {
-      const response = await fetch(`{API_ENDPOINT}/chat`, {
+      const response = await fetch(`${API_ENDPOINT}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query }),
