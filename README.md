@@ -30,7 +30,7 @@ I designed a **conversational analytics engine** that transforms raw social medi
 
 This design ensures scalability with larger context windows when upgrading beyond free-tier Groq limits.  
 
-![Smart Report](images/smart_report.png)
+![Smart Report](images/smart_report.pn)
 
 ---
 
@@ -41,8 +41,17 @@ I developed a **semantic clustering pipeline** to automatically group related co
 - **Cluster Querying:** Implemented a `@ClusterName` tagging system, inspired by WhatsApp mentions, for easy referencing of specific clusters.  
 - **Visualization:** Generated **cluster visualizations** to observe data point distributions, intra-cluster cohesion, and inter-cluster separation.  
 - **Cluster Labeling:** Leveraged **LLaMA 8.1-Instant** to automatically assign descriptive, human-readable names to clusters (e.g., *AI Research Trends*, *Gaming Hardware*, *Community Feedback*).  
+<img width="1748" height="1013" alt="Screenshot From 2025-09-11 01-30-21" src="https://github.com/user-attachments/assets/cbdd440b-a14f-438e-b7f2-40ad254c6c03" />
+<img width="1748" height="1013" alt="Screenshot From 2025-09-11 01-30-28" src="https://github.com/user-attachments/assets/9ac901c2-ffc9-4071-bb03-08d7eddb1820" />
+<img width="1748" height="1013" alt="Screenshot From 2025-09-11 01-30-33" src="https://github.com/user-attachments/assets/4df9422b-8401-48b8-83bd-71432c1ff255" />
+<img width="1748" height="1013" alt="Screenshot From 2025-09-11 01-30-36" src="https://github.com/user-attachments/assets/b7802a68-7039-4f3d-8ebe-4f330ec34654" />
+<img width="1748" height="1013" alt="Screenshot From 2025-09-11 01-30-40" src="https://github.com/user-attachments/assets/dc2dfec0-db83-41fe-a543-4b01270b4781" />
+<img width="1748" height="1013" alt="Screenshot From 2025-09-11 01-30-42" src="https://github.com/user-attachments/assets/d5a6d7dc-f59d-4a81-a02c-f9585b2f5bed" />
+<img width="1748" height="1013" alt="Screenshot From 2025-09-11 01-30-46" src="https://github.com/user-attachments/assets/94a98424-3f91-4e7b-89bb-d77e4712f1d1" />
+<img width="1748" height="1013" alt="Screenshot From 2025-09-11 01-30-49" src="https://github.com/user-attachments/assets/f0bc7236-28f8-4999-a872-f3090de253f4" />
 
 This enables me to move seamlessly between **macro-level trend discovery** and **micro-level cluster drilldowns**.  
+
 
 ![Cluster Querying](images/cluster_query.png)
 
