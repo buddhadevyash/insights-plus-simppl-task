@@ -41,8 +41,8 @@ const SAFE_COLORS = {
 // --- Constants ---
 const API_ENDPOINT = process.env.NEXT_PUBLIC_FASTAPI || "http://127.0.0.1:8000/generate-report";
 const EXEMPLAR_PROMPTS = [
-    "discussions regarding openai",
-    "Generate a sales report for last quarter",
+    "Discussions about AI safety and ethics",
+    "Generate a sales report for the last quarter",
     "Summarize user engagement from the past month",
 ];
 const MESSAGE_TYPES = {
@@ -54,7 +54,7 @@ const MESSAGE_TYPES = {
 
 // --- DATA TRANSFORMATION HELPER ---
 const transformApiResponse = (apiData) => {
-    // Defensive check for all essential data keys to prevent crashes
+    // Defensive check for all essential data keys
     const requiredKeys = ['natural_response', 'statistical_analysis', 'detailed_report', 'visualizations', 'metadata', 'top_results'];
     for (const key of requiredKeys) {
         if (!apiData || !apiData[key]) {
@@ -62,7 +62,7 @@ const transformApiResponse = (apiData) => {
             return {
                 summary: {
                     overview: "Incomplete data received from the server.",
-                    key_metrics: "N/A",
+                    key_metrics: "Data could not be processed.",
                     primary_insight: "Could not process the API response due to missing data.",
                 },
                 report: { detailed_analysis: "The data from the server was malformed or incomplete, preventing a full report from being generated." },
@@ -73,45 +73,70 @@ const transformApiResponse = (apiData) => {
         }
     }
 
-    // Extract key metrics from statistical analysis
-    const correlationString = String(apiData.statistical_analysis.correlation_analysis);
-    const correlationMatch = correlationString.match(/r\s*=\s*(-?\d+\.\d+)/);
-    const correlationValue = correlationMatch ? correlationMatch[1] : 'N/A';
+    // Destructure apiData for cleaner access
+    const { natural_response, statistical_analysis, detailed_report, visualizations: apiVisualizations, metadata, top_results: apiTopResults } = apiData;
 
-    const trendString = String(apiData.statistical_analysis.trend_analysis);
-    const trendMatch = trendString.match(/mean engagement of (\d+)/);
-    const meanEngagement = trendMatch ? trendMatch[1] : 'N/A';
-
-    // Map the summary section
-    const summary = {
-        overview: apiData.natural_response.summary,
-        key_metrics: `Mean Engagement: ${meanEngagement} | Correlation (r): ${correlationValue} | Users: ${apiData.metadata?.unique_users_count || 'N/A'}`,
-        primary_insight: apiData.statistical_analysis.inferential_statistics,
+    // Safely parse the title from the top_posts JSON string first
+    const top_results = {
+        ...apiTopResults,
+        top_posts: apiTopResults.top_posts.map(post => {
+            try {
+                const parsedTitle = JSON.parse(post.title);
+                return { ...post, title: parsedTitle.title || post.title };
+            } catch (e) {
+                return post;
+            }
+        })
     };
 
-    // Map the detailed report section, including new fields
+    // --- UPDATED LOGIC: Create a new, more robust "Top Figures" metric ---
+    const topUsers = apiTopResults?.top_users || [];
+    const topPosts = top_results?.top_posts || [];
+    
+    const totalReactions = topUsers.reduce((acc, user) => acc + (user.reactions || 0), 0);
+    const uniqueUsers = metadata?.unique_users_count || 0;
+    
+    const topPost = topPosts.find(post => post.rank === 1);
+    let topPostTitle = topPost ? topPost.title : 'Not Found';
+    
+    // Truncate title if it's too long to fit in the card
+    if (topPostTitle.length > 30) {
+        topPostTitle = `${topPostTitle.substring(0, 30)}...`;
+    }
+
+    const keyMetrics = `Reactions: ${totalReactions.toLocaleString()} | Users: ${uniqueUsers} | Top Post: "${topPostTitle}"`;
+    // --- END OF UPDATED LOGIC ---
+    
+    // Map the summary section
+    const summary = {
+        overview: natural_response.summary,
+        key_metrics: keyMetrics,
+        primary_insight: statistical_analysis.inferential_statistics,
+    };
+
+    // Map the detailed report section
     const report = {
-        detailed_analysis: apiData.detailed_report.comprehensive_analysis,
-        key_findings: apiData.natural_response.key_points.map(point => ({ text: point })),
-        actionable_insights: apiData.natural_response.actionable_insights.map(insight => ({ text: insight })),
+        detailed_analysis: detailed_report.comprehensive_analysis,
+        key_findings: natural_response.key_points.map(point => ({ text: point })),
+        actionable_insights: natural_response.actionable_insights.map(insight => ({ text: insight })),
         statistical_summary: {
-            correlation_analysis: apiData.statistical_analysis.correlation_analysis,
-            trend_analysis: apiData.statistical_analysis.trend_analysis,
+            correlation_analysis: statistical_analysis.correlation_analysis,
+            trend_analysis: statistical_analysis.trend_analysis,
         },
         methodology_and_limits: {
-            statistical_methodology: apiData.statistical_analysis.methodology,
-            data_quality_assessment: apiData.statistical_analysis.data_quality_assessment,
-            limitations_and_caveats: apiData.detailed_report.limitations_and_caveats,
+            statistical_methodology: statistical_analysis.methodology,
+            data_quality_assessment: statistical_analysis.data_quality_assessment,
+            limitations_and_caveats: detailed_report.limitations_and_caveats,
         },
         additional_analysis: {
-            platform_comparison: apiData.detailed_report.platform_comparison,
-            user_behavior_analysis: apiData.detailed_report.user_behavior_analysis,
-            content_performance: apiData.detailed_report.content_performance,
+            platform_comparison: detailed_report.platform_comparison,
+            user_behavior_analysis: detailed_report.user_behavior_analysis,
+            content_performance: detailed_report.content_performance,
         }
     };
 
-    // Map the visualizations, fixing scatter plot data structure
-    const visualizations = apiData.visualizations.map(chart => {
+    // Map the visualizations
+    const visualizations = apiVisualizations.map(chart => {
         if ((chart.type === 'bar' || chart.type === 'line') && chart.labels && chart.data) {
             return { ...chart, data: { x: chart.labels, y: chart.data } };
         }
@@ -124,24 +149,7 @@ const transformApiResponse = (apiData) => {
         return chart;
     });
 
-    // Safely parse the title from the top_posts JSON string
-    const top_results = {
-        ...apiData.top_results,
-        top_posts: apiData.top_results.top_posts.map(post => {
-            try {
-                // Attempt to parse the title which appears to be a JSON string
-                const parsedTitle = JSON.parse(post.title);
-                // Return a new post object with the cleaned title, or the original title if parsing fails
-                return { ...post, title: parsedTitle.title || post.title };
-            } catch (e) {
-                // If parsing fails, return the post object as is
-                return post;
-            }
-        })
-    };
-
-
-    return { summary, report, visualizations, top_results, metadata: apiData.metadata };
+    return { summary, report, visualizations, top_results, metadata };
 };
 
 
@@ -573,28 +581,26 @@ export default function ChatbotPage() {
         const content = messageContent.trim();
         if (!content || isLoading) return;
 
-        const isNewConversation = !activeChat || activeChat.messages.length === 0;
-        const targetChatId = isNewConversation ? activeChatId : startNewChat();
+        let targetChatId = activeChatId;
+        if (!activeChat || activeChat.messages.length > 0) {
+            targetChatId = startNewChat();
+        }
 
-        // Use a short timeout to allow the UI to update with the user's message before the API call starts
-        setTimeout(async () => {
-            addMessage(targetChatId, { type: MESSAGE_TYPES.USER, content, timestamp: new Date().toISOString() });
-            setInput('');
-            setIsLoading(true);
-            try {
-                // ** DYNAMIC API CALL IS MADE HERE **
-                const data = await makeApiCall(content);
+        addMessage(targetChatId, { type: MESSAGE_TYPES.USER, content, timestamp: new Date().toISOString() });
+        setInput('');
+        setIsLoading(true);
 
-                // The received JSON is transformed and then displayed
-                const transformedData = transformApiResponse(data);
-                addMessage(targetChatId, { type: MESSAGE_TYPES.REPORT, content: transformedData, timestamp: new Date().toISOString() });
-            } catch (error) {
-                addMessage(targetChatId, { type: MESSAGE_TYPES.ERROR, content: error.message, originalQuery: content, timestamp: new Date().toISOString() });
-            } finally {
-                setIsLoading(false);
-            }
-        }, 50);
+        try {
+            const data = await makeApiCall(content);
+            const transformedData = transformApiResponse(data);
+            addMessage(targetChatId, { type: MESSAGE_TYPES.REPORT, content: transformedData, timestamp: new Date().toISOString() });
+        } catch (error) {
+            addMessage(targetChatId, { type: MESSAGE_TYPES.ERROR, content: error.message, originalQuery: content, timestamp: new Date().toISOString() });
+        } finally {
+            setIsLoading(false);
+        }
     }, [input, isLoading, addMessage, makeApiCall, startNewChat, activeChat, activeChatId]);
+
 
     const handleKeyPress = (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
