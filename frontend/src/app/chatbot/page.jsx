@@ -225,7 +225,7 @@ const useApiCall = () => {
     if (abortControllerRef.current) abortControllerRef.current.abort();
     abortControllerRef.current = new AbortController();
     try {
-      const response = await fetch(`${API_ENDPOINT}/chat`, {
+      const response = await fetch(`${API_ENDPOINT}/neo4j-chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query }),
