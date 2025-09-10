@@ -10,51 +10,87 @@ The project leverages a modern and scalable architecture with:
 
 ---
 
-## Key Features
+# Technical System Overview
 
-### 1. Cross-Platform Analysis  
-Unify insights across YouTube and Reddit. The dashboard enables:  
-- Comparative content performance across platforms.  
-- Identification of where engagement is strongest.  
-- Differences in sentiment and trending topics.  
+This project integrates **conversational AI, clustering, interactive dashboards, graph-based data modeling, and external data augmentation** to deliver advanced insights from YouTube and Reddit datasets. Below is a detailed breakdown of the components I designed.
 
-This enables smarter strategy design tailored for each audience.  
+---
 
-### 2. Rich & Interactive Visualizations  
-Dynamic and interactive charts provide at-a-glance insights:  
-- **Platform Distribution** – Understand post share by platform.  
-- **Engagement Trends** – Track likes, comments, and upvotes over time.  
-- **Top Performing Posts** – Analyze top posts with engagement scores, authors, and links.  
-- **Most Influential Users** – Identify users with genuine influence, not just high activity.  
-- **AI-Powered Trending Keywords** – Extract significant topics using Groq API.  
-- **Posts Histogram** – Reveal posting velocity and scheduling patterns.  
-- **Trending Comments** – Surface high-engagement audience opinions.  
-- **Sentiment Analysis Trends** – Monitor sentiment dynamics over time.  
+### 1. Conversational AI–Driven Smart Reporting  
+I designed a **conversational analytics engine** that transforms raw social media data into **inferential visualizations and reports** based on natural language queries.  
 
-### 3. AI-Powered Thematic Clustering  
-Automatically group thousands of posts and comments into coherent themes:  
-1. Convert content into embeddings.  
-2. Apply KMeans clustering.  
-3. Use Groq LLM to label clusters with descriptive names (e.g., *“AI Technology & ChatGPT”*).  
+- **Embedding Generation:** Used `all-MiniLM-L6-v2` to convert unstructured text (posts, comments, discussions) into semantic embeddings.  
+- **Similarity Search:** Implemented **cosine similarity** with **KNN (k=8)** retrieval to extract the most contextually relevant posts.  
+- **Context Optimization:** Limited query expansion to the **≤8000 token cap** of Groq’s free tier by dynamically pruning low-confidence results.  
+- **Reporting Framework:**  
+  - **Summary Reports** → key engagement metrics, sentiment distributions, and posting frequencies.  
+  - **Detailed Drilldowns** → fine-grained insights at the post/comment level.  
+  - **Key Metrics Extraction** → automatically highlights top-performing entities.  
+- **Inference Engine:** Integrated **OpenAI OSS 20B** on Groq, balancing performance with low-latency response times.  
 
-This converts unstructured data into digestible insights.  
+This design ensures scalability with larger context windows when upgrading beyond free-tier Groq limits.  
 
-### 4. Conversational AI Chat  
-Ask natural language questions such as:  
-- “What is the sentiment in the *Community Feedback & Issues* cluster?”  
-- “Which users are most active in AI-related discussions?”  
-- “Summarize the *Gaming Hardware* cluster.”  
+![Smart Report](images/smart_report.png)
 
-The AI returns context-rich answers backed by your data.  
+---
 
-### 5. Graph-Based Data Modeling with Neo4j  
-Neo4j maps complex relationships across `Users`, `Posts`, `Comments`, and `Topics`, enabling advanced queries such as:  
-- Identifying influencers on niche topics.  
-- Detecting cross-platform conversations.  
-- Discovering hidden community structures.  
+### 2. Cluster Querying & Tag-Based Exploration  
+I developed a **semantic clustering pipeline** to automatically group related content into coherent themes, enabling both visualization and direct query access.  
 
-### 6. Scalable & Efficient Backend  
-The backend, built with **FastAPI**, delivers asynchronous, high-performance APIs capable of handling large datasets and concurrent requests.  
+- **Clustering:** Applied **KMeans** on embeddings to form **top-k thematic clusters**, capturing high-level discussion topics.  
+- **Cluster Querying:** Implemented a `@ClusterName` tagging system, inspired by WhatsApp mentions, for easy referencing of specific clusters.  
+- **Visualization:** Generated **cluster visualizations** to observe data point distributions, intra-cluster cohesion, and inter-cluster separation.  
+- **Cluster Labeling:** Leveraged **LLaMA 8.1-Instant** to automatically assign descriptive, human-readable names to clusters (e.g., *AI Research Trends*, *Gaming Hardware*, *Community Feedback*).  
+
+This enables me to move seamlessly between **macro-level trend discovery** and **micro-level cluster drilldowns**.  
+
+![Cluster Querying](images/cluster_query.png)
+
+---
+
+### 3. Dynamic Real-Time Dashboard  
+I implemented a **real-time interactive dashboard** to centralize insights and provide at-a-glance intelligence.  
+
+- **Data Refreshing:** Designed for **dynamic updates** as new social data is ingested.  
+- **Smart Filters:** Added filters for platform (YouTube/Reddit), sentiment range, engagement thresholds, and time periods.  
+- **Leaderboards:** Automatically generates rankings of **top posts, authors, and clusters** to surface key contributors and discussions.  
+- **Visualization Suite:** Includes engagement timelines, sentiment dynamics, keyword trends, and posting velocity histograms.  
+
+This dashboard acts as a **command center**, making complex analysis accessible in a single interface.  
+
+![Dashboard](images/dashboard.png)
+
+---
+
+### 4. News API Integration (Future Scope)  
+As a future extension, I scoped out **News API integration** to contextualize platform-specific insights with **external events and real-world signals**.  
+
+- **Embedding Augmentation:** External articles will be embedded alongside social data to enrich cluster context.  
+- **Cross-Domain Correlation:** Enables tracing correlations between trending news and social platform engagement spikes.  
+- **Optimal Report Generation:** Produces augmented summaries that merge **internal community sentiment** with **external narratives**.  
+
+This paves the way for **holistic reporting** that is not only platform-specific but also globally aware.  
+
+![News API](images/news_api.png)
+
+---
+
+### 5. Neo4j Relationship Modeling  
+I architected a **graph-based data model** using **Neo4j AuraDB Free Instance** to capture the intricate relationships between users, posts, comments, and topics.  
+
+- **Graph Population:**  
+  - **Clusters → Platforms (YouTube, Reddit)**  
+  - **Clusters → Posts → Comments**  
+  - **Users → Posts → Engagement Metrics**  
+- **Advanced Queries Enabled:**  
+  - Detecting **cross-platform influencers** who shape narratives across Reddit and YouTube simultaneously.  
+  - Identifying **hidden community structures** and micro-communities.  
+  - Mapping **thematic overlaps** where user-generated clusters converge on similar discussions.  
+- **Scalability:** The graph model allows easy scaling into **temporal graphs**, enabling trend tracking over time.  
+
+This design makes it possible to move beyond static analysis into **relationship-driven insights**.  
+
+![Neo4j Graph](images/neo4j_graph.png)
 
 ---
 
