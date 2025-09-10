@@ -92,15 +92,69 @@ The backend, built with **FastAPI**, delivers asynchronous, high-performance API
 
 ## Getting Started
 
+Follow these steps to set up and run the application on your local machine.
+
 ### Prerequisites
-- **Node.js & npm** (or yarn) for the frontend.  
-- **Python 3.8+ & pip** for the backend.  
-- **Neo4j Desktop** or Neo4j AuraDB cloud instance.  
-- **Groq API key** for AI features.  
+
+-   **Node.js & npm** (or yarn) for the Next.js frontend.
+-   **Python 3.8+ & pip** for the FastAPI backend.
+-   **Neo4j Desktop** or a cloud-based Neo4j AuraDB instance.
+-   A **Groq API key** for AI features.
 
 ### Installation
 
-1. **Clone the repository**  
-   ```bash
-   git clone https://github.com/your-username/insights-plus-simppl-task.git
-   cd insights-plus-simppl-task
+1.  **Clone the repository**:
+    ```bash
+    git clone [https://github.com/your-username/your-repo-name.git](https://github.com/your-username/your-repo-name.git)
+    cd your-repo-name
+    ```
+
+2.  **Backend Setup**:
+    -   Navigate to the `backend` directory.
+    -   Install the required Python packages:
+        ```bash
+        pip install -r requirements.txt
+        ```
+    -   Create a `.env` file in the `backend/app` directory and add your credentials:
+        ```env
+        GROQ_API_KEY="your_groq_api_key"
+        NEO4J_URI="your_neo4j_bolt_uri"
+        NEO4J_USER="your_neo4j_username"
+        NEO4J_PASSWORD="your_neo4j_password"
+        ```
+
+3.  **Frontend Setup**:
+    -   Navigate to the `frontend` directory.
+    -   Install the required npm packages:
+        ```bash
+        npm install
+        ```
+
+---
+
+## Usage
+
+1.  **Start the backend server**:
+    -   From the `backend` directory, run:
+        ```bash
+        uvicorn app.main:app --reload
+        ```
+    -   The API will be available at `http://localhost:8000`.
+
+2.  **Start the frontend development server**:
+    -   From the `frontend` directory, run:
+        ```bash
+        npm run dev
+        ```
+
+3.  **Access the application**:
+    -   Open your web browser and navigate to `http://localhost:3000`.
+
+4.  **Populate the Neo4j Database**:
+    -   Before you can see graph-based data, you must populate your Neo4j instance. Send a `POST` request to the `/populate-database` endpoint using a tool like `curl` or Postman:
+        ```bash
+        curl -X POST http://localhost:8000/populate-database
+        ```
+    -   You can now explore the dashboard, interact with visualizations, and use the AI chat to analyze your social media data.
+
+---
