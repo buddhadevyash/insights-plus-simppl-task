@@ -158,3 +158,42 @@ Follow these steps to set up and run the application on your local machine.
     -   You can now explore the dashboard, interact with visualizations, and use the AI chat to analyze your social media data.
 
 ---
+
+## Project Structure
+
+A high-level overview of the project's architecture:
+insights-plus-simppl-task/
+├── backend/
+│   ├── app/
+│   │   ├── main.py              # FastAPI entry point
+│   │   ├── data/                # Data ingestion
+│   │   ├── embedded_json_data/  # Pre-computed embeddings
+│   │   │   ├── comments_reddit.json
+│   │   │   ├── comments_youtube.json
+│   │   │   ├── posts_reddit.json
+│   │   │   └── posts_youtube.json
+│   │   └── json_data/           # Raw sample JSON data
+│   ├── pyproject.toml
+│   └── requirements.txt
+│
+├── frontend/
+│   ├── public/
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── api/news/route.js
+│   │   │   ├── chatbot/         # Chat UI and visualizations
+│   │   │   │   ├── chat-ui.jsx
+│   │   │   │   ├── page.jsx
+│   │   │   │   ├── ReportDisplay.jsx
+│   │   │   │   └── Visualization.jsx
+│   │   │   ├── components/dashboard/
+│   │   │   │   └── line-chart.tsx
+│   │   │   ├── visualize/page.jsx
+│   │   │   └── news/page.jsx
+│   │   ├── globals.css
+│   │   ├── layout.jsx
+│   │   └── page.jsx
+│   └── package.json
+│
+└── README.md
+
