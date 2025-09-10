@@ -21,8 +21,8 @@ This project integrates **conversational AI, clustering, interactive dashboards,
 I designed a **conversational analytics engine** that transforms raw social media data into **inferential visualizations and reports** based on natural language queries.  
 
 - **Embedding Generation:** Used `all-MiniLM-L6-v2` to convert unstructured text (posts, comments, discussions) into semantic embeddings.  
-- **Similarity Search:** Implemented **cosine similarity** with **KNN** retrieval to extract the most contextually relevant posts.  
-- **Context Optimization:** Limited query expansion to the **≤8000 token cap** of Groq’s free tier by dynamically pruning low-confidence results.  
+- **Similarity Search:** Leveraged **cosine similarity** with **KNN retrieval** using embeddings from **`all-MiniLM-L6-v2`** to extract the most contextually relevant posts.
+**Context Optimization:** Limited query expansion to the **≤8000 token cap** of Groq’s free tier by dynamically pruning low-confidence results.  
 - **Reporting Framework:**  
   - **Summary Reports** → key engagement metrics, sentiment distributions, and posting frequencies.  
   - **Detailed Drilldowns** → fine-grained insights at the post/comment level.  
