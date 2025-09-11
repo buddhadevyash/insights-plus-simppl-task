@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { cn } from "@/lib/utils";
 import { Search } from 'lucide-react';
+const API_ENDPOINT = process.env.NEXT_PUBLIC_FASTAPI || "http://127.0.0.1:8000";
 
 // --- Configuration options for the Vis.js network graph ---
 const options = {
@@ -236,7 +237,7 @@ export default function VisualizePage() {
             setLoading(true); setError(null);
             try {
                 await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate loading
-                const response = await fetch('http://127.0.0.1:8003/cluster', { method: 'POST' });
+                const response = await fetch(`${API_ENDPOINT}/cluster`, { method: 'POST' });
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const result = await response.json();
                 
@@ -357,7 +358,7 @@ export default function VisualizePage() {
             setChatError(null);
             setChatResponse('');
             try {
-                const res = await fetch('http://127.0.0.1:8003/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cluster_name: clusterName, question: questionText }) });
+                const res = await fetch(`${API_ENDPOINT}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cluster_name: clusterName, question: questionText }) });
                 if (!res.ok) { const err = await res.json(); throw new Error(err.detail || `Server error: ${res.status}`); }
                 const result = await res.json();
                 setChatResponse(result.response);

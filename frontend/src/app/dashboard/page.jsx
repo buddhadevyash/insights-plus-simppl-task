@@ -34,6 +34,9 @@ ChartJS.register(
   CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Title, Tooltip, Legend
 );
 
+const API_ENDPOINT = process.env.NEXT_PUBLIC_FASTAPI || "http://127.0.0.1:8000";
+
+
 // --- Reusable Color Palettes ---
 const COLORS = {
   youtube: {
@@ -294,7 +297,7 @@ export default function DashboardPage() {
       setError(null);
 
       try {
-        const response = await fetch('http://localhost:8002/dashboard',{
+        const response = await fetch(`${API_ENDPOINT}/dashboard`,{
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

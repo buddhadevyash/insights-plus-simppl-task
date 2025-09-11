@@ -1334,7 +1334,7 @@ async def cluster_data(num_clusters: int = 8):
         embedded_records = read_embedded_json_file(embedded_path)
         
         # Limit to the first 500 records from each file
-        records_to_process = embedded_records[:100]
+        records_to_process = embedded_records[:500]
         
         for record in records_to_process:
             if 'small_embedding' in record and record['small_embedding'] is not None:

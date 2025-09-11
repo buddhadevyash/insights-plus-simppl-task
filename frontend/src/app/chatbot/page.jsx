@@ -39,7 +39,7 @@ const SAFE_COLORS = {
 };
 
 // --- Constants ---
-const API_ENDPOINT = process.env.NEXT_PUBLIC_FASTAPI || "http://127.0.0.1:8000/generate-report";
+const API_ENDPOINT = process.env.NEXT_PUBLIC_FASTAPI || "http://127.0.0.1:8000";
 const EXEMPLAR_PROMPTS = [
     "Discussions about AI safety and ethics",
     "Generate a sales report for the last quarter",
@@ -432,7 +432,7 @@ const useApiCall = () => {
 
         try {
             // ** This is your dynamic API endpoint **
-            const response = await fetch("http://127.0.0.1:8000/neo4j-chat", {
+            const response = await fetch(`${API_ENDPOINT}/neo4j-chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ query }),
