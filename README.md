@@ -24,7 +24,7 @@ The project leverages a modern and scalable architecture with:
 
 
 ---
-## 📽️ Demo Video  
+## Demo Video  
 
 <a href="https://www.youtube.com/watch?v=yD7N7sRS68E" target="_blank">
   <img src="https://img.youtube.com/vi/yD7N7sRS68E/maxresdefault.jpg" alt="Watch the Demo" width="100%" />
