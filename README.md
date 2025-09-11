@@ -8,7 +8,7 @@ The project leverages a modern and scalable architecture with:
 - **Neo4j** for graph-based data modeling.  
 - **Groq API** for cutting-edge AI-powered analysis.  
 
-- **<img width="962" height="743" alt="- visual selection" src="https://github.com/user-attachments/assets/4ad45035-80a4-49d1-9dae-c9413b8e2fa0" />
+<img width="962" height="743" alt="- visual selection" src="https://github.com/user-attachments/assets/4ad45035-80a4-49d1-9dae-c9413b8e2fa0" />
 
 
 ---
