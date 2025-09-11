@@ -169,19 +169,19 @@ Follow these steps to set up and run the application on your local machine.
 
 ### Installation
 
-1.  **Clone the repository**:
+1. **Clone the repository**:
     ```bash
-    git clone [https://github.com/your-username/your-repo-name.git](https://github.com/your-username/your-repo-name.git)
-    cd your-repo-name
+    git clone https://github.com/buddhadevyash/insights-plus-simppl-task.git
+    cd insights-plus-simppl-task
     ```
 
-2.  **Backend Setup**:
-    -   Navigate to the `backend` directory.
-    -   Install the required Python packages:
+2. **Backend Setup**:
+    - Navigate to the `backend` directory.
+    - Install the required Python packages:
         ```bash
         pip install -r requirements.txt
         ```
-    -   Create a `.env` file in the `backend/app` directory and add your credentials:
+    - Create a `.env` file in the `backend/app` directory and add your credentials:
         ```env
         GROQ_API_KEY="your_groq_api_key"
         NEO4J_URI="your_neo4j_bolt_uri"
@@ -189,9 +189,9 @@ Follow these steps to set up and run the application on your local machine.
         NEO4J_PASSWORD="your_neo4j_password"
         ```
 
-3.  **Frontend Setup**:
-    -   Navigate to the `frontend` directory.
-    -   Install the required npm packages:
+3. **Frontend Setup**:
+    - Navigate to the `frontend` directory.
+    - Install the required npm packages:
         ```bash
         npm install
         ```
@@ -200,30 +200,29 @@ Follow these steps to set up and run the application on your local machine.
 
 ## Usage
 
-1.  **Start the backend server**:
-    -   From the `backend` directory, run:
+1. **Start the backend server**:
+    - From the `backend` directory, run:
         ```bash
         uvicorn app.main:app --reload
         ```
-    -   The API will be available at `http://localhost:8000`.
+    - The API will be available at `http://localhost:8000`.
 
-2.  **Start the frontend development server**:
-    -   From the `frontend` directory, run:
+2. **Start the frontend development server**:
+    - From the `frontend` directory, run:
         ```bash
         npm run dev
         ```
 
-3.  **Access the application**:
-    -   Open your web browser and navigate to `http://localhost:3000`.
+3. **Access the application**:
+    - Open your web browser and navigate to `http://localhost:3000`.
 
-4.  **Populate the Neo4j Database**:
-    -   Before you can see graph-based data, you must populate your Neo4j instance. Send a `POST` request to the `/populate-database` endpoint using a tool like `curl` or Postman:
+4. **Populate the Neo4j Database**:
+    - Before you can see graph-based data, you must populate your Neo4j instance. Send a `POST` request to the `/populate-database` endpoint using a tool like `curl` or Postman:
         ```bash
         curl -X POST http://localhost:8000/populate-database
         ```
-    -   You can now explore the dashboard, interact with visualizations, and use the AI chat to analyze your social media data.
+    - You can now explore the dashboard, interact with visualizations, and use the AI chat to analyze your social media data.
 
----
 
 ## Project Structure
 
