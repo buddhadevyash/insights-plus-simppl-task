@@ -1,4 +1,14 @@
-# Insights Plus: Social Media Insights Analyst
+# Insights Plus: Social Media Analyst
+
+[![Next.js](https://img.shields.io/badge/Next.js-15.0-black.svg)](https://nextjs.org/)
+[![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-F7DF1E.svg)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
+[![ShadCN/UI](https://img.shields.io/badge/ShadCN/UI-Components-purple.svg)](https://ui.shadcn.com/)
+[![Vis.js](https://img.shields.io/badge/Vis.js-Network%20Graphs-orange.svg)](https://visjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Framework-009688.svg)](https://fastapi.tiangolo.com/)
+[![Python](https://img.shields.io/badge/Python-3.11+-yellow.svg)](https://www.python.org/)
+[![Neo4j](https://img.shields.io/badge/Neo4j-GraphDB-008CC1.svg)](https://neo4j.com/)
+[![Groq API](https://img.shields.io/badge/Groq-API-red.svg)](https://groq.com/)
+[![NewsAPI](https://img.shields.io/badge/Live%20News-API-blue.svg)](https://newsapi.org/)
 
 This AI-driven web application provides a comprehensive solution for **analyzing and visualizing social media data** from YouTube and Reddit. It transforms raw data into actionable intelligence, empowering users to uncover insights, monitor engagement, and interact with data using natural language queries.  
 
@@ -8,12 +18,24 @@ The project leverages a modern and scalable architecture with:
 - **Neo4j** for graph-based data modeling.  
 - **Groq API** for cutting-edge AI-powered analysis.  
 
+
+
+<img width="962" height="743" alt="- visual selection" src="https://github.com/user-attachments/assets/4ad45035-80a4-49d1-9dae-c9413b8e2fa0" />
+
+
 ---
-    ## 📽️ Demo Video  
-[![Watch the Demo: https://www.youtube.com/watch?v=yD7N7sRS68E](https://img.youtube.com/vi/yD7N7sRS68E/0.jpg)](https://youtu.be/yD7N7sRS68E)
+## Demo Video  
+
+<a href="https://www.youtube.com/watch?v=yD7N7sRS68E" target="_blank">
+  <img src="https://img.youtube.com/vi/yD7N7sRS68E/maxresdefault.jpg" alt="Watch the Demo" width="100%" />
+</a>
+
 # Technical System Overview
 
 This project integrates **conversational AI, clustering, interactive dashboards, graph-based data modeling, and external data augmentation** to deliver advanced insights from YouTube and Reddit datasets. Below is a detailed breakdown of the components I designed.
+<img width="1014" height="746" alt="- visual selection(1)" src="https://github.com/user-attachments/assets/8845452b-340f-4bb0-9333-fbaa247cb11a" />
+
+
 
 ---
 
@@ -166,19 +188,19 @@ Follow these steps to set up and run the application on your local machine.
 
 ### Installation
 
-1.  **Clone the repository**:
+1. **Clone the repository**:
     ```bash
-    git clone [https://github.com/your-username/your-repo-name.git](https://github.com/your-username/your-repo-name.git)
-    cd your-repo-name
+    git clone https://github.com/buddhadevyash/insights-plus-simppl-task.git
+    cd insights-plus-simppl-task
     ```
 
-2.  **Backend Setup**:
-    -   Navigate to the `backend` directory.
-    -   Install the required Python packages:
+2. **Backend Setup**:
+    - Navigate to the `backend` directory.
+    - Install the required Python packages:
         ```bash
         pip install -r requirements.txt
         ```
-    -   Create a `.env` file in the `backend/app` directory and add your credentials:
+    - Create a `.env` file in the `backend/app` directory and add your credentials:
         ```env
         GROQ_API_KEY="your_groq_api_key"
         NEO4J_URI="your_neo4j_bolt_uri"
@@ -186,9 +208,9 @@ Follow these steps to set up and run the application on your local machine.
         NEO4J_PASSWORD="your_neo4j_password"
         ```
 
-3.  **Frontend Setup**:
-    -   Navigate to the `frontend` directory.
-    -   Install the required npm packages:
+3. **Frontend Setup**:
+    - Navigate to the `frontend` directory.
+    - Install the required npm packages:
         ```bash
         npm install
         ```
@@ -197,30 +219,29 @@ Follow these steps to set up and run the application on your local machine.
 
 ## Usage
 
-1.  **Start the backend server**:
-    -   From the `backend` directory, run:
+1. **Start the backend server**:
+    - From the `backend` directory, run:
         ```bash
         uvicorn app.main:app --reload
         ```
-    -   The API will be available at `http://localhost:8000`.
+    - The API will be available at `http://localhost:8000`.
 
-2.  **Start the frontend development server**:
-    -   From the `frontend` directory, run:
+2. **Start the frontend development server**:
+    - From the `frontend` directory, run:
         ```bash
         npm run dev
         ```
 
-3.  **Access the application**:
-    -   Open your web browser and navigate to `http://localhost:3000`.
+3. **Access the application**:
+    - Open your web browser and navigate to `http://localhost:3000`.
 
-4.  **Populate the Neo4j Database**:
-    -   Before you can see graph-based data, you must populate your Neo4j instance. Send a `POST` request to the `/populate-database` endpoint using a tool like `curl` or Postman:
+4. **Populate the Neo4j Database**:
+    - Before you can see graph-based data, you must populate your Neo4j instance. Send a `POST` request to the `/populate-database` endpoint using a tool like `curl` or Postman:
         ```bash
         curl -X POST http://localhost:8000/populate-database
         ```
-    -   You can now explore the dashboard, interact with visualizations, and use the AI chat to analyze your social media data.
+    - You can now explore the dashboard, interact with visualizations, and use the AI chat to analyze your social media data.
 
----
 
 ## Project Structure
 
