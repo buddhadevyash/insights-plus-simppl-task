@@ -1,4 +1,4 @@
-# Insights Plus: Social Media Insights Analyst
+# Insights Plus: Social Media Analyst
 
 This AI-driven web application provides a comprehensive solution for **analyzing and visualizing social media data** from YouTube and Reddit. It transforms raw data into actionable intelligence, empowering users to uncover insights, monitor engagement, and interact with data using natural language queries.  
 
