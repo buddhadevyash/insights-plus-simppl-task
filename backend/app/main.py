@@ -11,8 +11,7 @@ from functools import lru_cache
 from collections import defaultdict, Counter
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Any, Optional, Union
-
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, validator
 from neo4j import GraphDatabase, exceptions
@@ -34,8 +33,8 @@ except ImportError:
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Load .env file
-load_dotenv("/home/y21tbh/Documents/insights-plus/insights-plus-simppl-task/backend/app/.env")
+# Load .env file from the current directory
+load_dotenv()
 
 # Read credentials
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -43,7 +42,7 @@ NEO4J_URI = os.getenv("NEO4J_URI")
 NEO4J_USER = os.getenv("NEO4J_USER")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 DATA_DIR = Path(__file__).parent.parent / "json_data"
-EMBEDDED_DATA_DIRECTORY = "backend/embedded_json_data"
+EMBEDDED_DATA_DIRECTORY = Path(__file__).parent.parent / "embedded_json_data"
 MAX_ITEMS_PER_CLUSTER = 5
 MAX_TEXT_LENGTH = 200
 
@@ -64,7 +63,6 @@ except Exception as e:
 
 # Embedding model will be loaded only when needed
 embedding_model = None
-
 # Thread pool for async operations
 executor = ThreadPoolExecutor(max_workers=4)
 
@@ -74,11 +72,10 @@ app = FastAPI(
     description="Optimized API for social media analytics with multiple visualization endpoints and AI capabilities",
     version="4.0.0"
 )
-
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://insights-plus-v1.vercel.app", "http://localhost:3000"],
+    allow_origins=["https://insights-plus-v1.vercel.app", "http://localhost:3000", "*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -93,11 +90,9 @@ cluster_names_cache = []
 data_cache = None
 
 # --- MODELS ---
-
 class DateRange(BaseModel):
     start_date: date
     end_date: date
-
     @validator('end_date')
     def end_date_must_be_after_start_date(cls, v, values):
         if 'start_date' in values and v < values['start_date']:
@@ -185,8 +180,10 @@ class ChatRequest(BaseModel):
 class ChatQuery(BaseModel):
     query: str
 
-# --- DATA LOADING AND CACHING ---
+class DataLoadRequest(BaseModel):
+    data: List[Dict[str, Any]]
 
+# --- DATA LOADING AND CACHING ---
 class DataCache:
     def __init__(self):
         self._cache = {}
@@ -218,7 +215,6 @@ class DataCache:
 data_cache = DataCache()
 
 # --- UTILITY FUNCTIONS ---
-
 def parse_date_safely(date_str: Any) -> Optional[date]:
     if not date_str:
         return None
@@ -268,7 +264,6 @@ def get_engagement_score(item: Dict) -> int:
                 score += max(0, likes - dislikes)
         except Exception as e:
             logger.debug(f"Reactions parsing error: {e}")
-
     likes = int(item.get('likes') or item.get('like_count') or 0)
     dislikes = int(item.get('dislikes') or item.get('dislike_count') or 0)
     score += max(0, likes - dislikes)
@@ -279,7 +274,6 @@ def get_engagement_score(item: Dict) -> int:
     
     if item.get('score') is not None:
         score += max(0, int(item['score']))
-
     comment_count = int(item.get('comment_count') or item.get('num_comments') or 0)
     score += comment_count * 2
     
@@ -418,7 +412,6 @@ def validate_and_clean_visualizations(llm_output: dict):
     if "visualizations" not in llm_output or not isinstance(llm_output.get("visualizations"), list):
         llm_output["visualizations"] = []
         return llm_output
-
     valid_charts = []
     for chart_idx, chart in enumerate(llm_output["visualizations"]):
         if not isinstance(chart, dict):
@@ -554,7 +547,6 @@ def extract_topics_from_text(text: str) -> List[str]:
     return topics[:3]  # Limit to 3 most relevant topics
 
 # --- NEO4J FUNCTIONS ---
-
 def create_constraints(tx):
     """Create constraints for all node types"""
     constraints = [
@@ -843,7 +835,6 @@ def query_neo4j_for_context(query_text: str, limit: int = 10) -> List[Dict]:
         return []
 
 # --- VISUALIZATION DATA GENERATORS ---
-
 async def generate_platform_distribution(yt_posts: List[Dict], rd_posts: List[Dict]) -> List[PlatformDistribution]:
     youtube_count, reddit_count = len(yt_posts), len(rd_posts)
     total = youtube_count + reddit_count
@@ -860,7 +851,6 @@ async def generate_platform_distribution(yt_posts: List[Dict], rd_posts: List[Di
 async def generate_engagement_trends(yt_posts: List[Dict], yt_comments: List[Dict], rd_posts: List[Dict], rd_comments: List[Dict]) -> List[EngagementTrend]:
     monthly_data = defaultdict(lambda: {'youtube': 0, 'reddit': 0})
     date_fields = ['date_of_post', 'published_date', 'created_utc', 'date_of_comment', 'published_at', 'timestamp']
-
     for item in yt_posts + yt_comments:
         date_obj = next((parse_date_safely(item[field]) for field in date_fields if item.get(field)), None)
         if date_obj:
@@ -870,7 +860,6 @@ async def generate_engagement_trends(yt_posts: List[Dict], yt_comments: List[Dic
         date_obj = next((parse_date_safely(item[field]) for field in date_fields if item.get(field)), None)
         if date_obj:
             monthly_data[date_obj.strftime("%Y-%m")]['reddit'] += get_engagement_score(item)
-
     trends = [EngagementTrend(month=m, youtube_engagement=d['youtube'], reddit_engagement=d['reddit'], total_engagement=d['youtube'] + d['reddit']) for m, d in sorted(monthly_data.items())]
     return trends if trends else [EngagementTrend(month=datetime.now().strftime("%Y-%m"), youtube_engagement=0, reddit_engagement=0, total_engagement=0)]
 
@@ -883,7 +872,6 @@ async def generate_top_posts(posts: List[Dict]) -> List[TopPost]:
             post_copy['_engagement_score'] = engagement_score
             post_copy['_platform'] = get_platform_from_item(post)
             processed_posts.append(post_copy)
-
     sorted_posts = sorted(processed_posts, key=lambda x: x.get('_engagement_score', 0), reverse=True)[:5]
     
     top_posts_list = []
@@ -894,7 +882,6 @@ async def generate_top_posts(posts: List[Dict]) -> List[TopPost]:
         
         title_candidate = post.get('title') or post.get('name')
         title = str(title_candidate) if title_candidate else (content[:70] + "..." if content else f"Post from {platform}")
-
         url = "#"
         if platform == 'YouTube':
             if post.get('video_id'):
@@ -905,7 +892,6 @@ async def generate_top_posts(posts: List[Dict]) -> List[TopPost]:
                 url = f"https://www.reddit.com{permalink}"
             else:
                 url = str(permalink or '#')
-
         top_posts_list.append(TopPost(
             rank=i,
             title=title.strip(),
@@ -927,11 +913,9 @@ async def generate_influential_users(posts: List[Dict], comments: List[Dict]) ->
             user_stats[username]['engagement'] += get_engagement_score(item)
             user_stats[username]['platforms'].add(platform)
             if any(k in item for k in ['title', 'video_id', 'selftext']): # Heuristic to count posts vs comments
-                 user_stats[username]['posts'] += 1
-
+                user_stats[username]['posts'] += 1
     filtered_users = {k: v for k, v in user_stats.items() if v['engagement'] > 0}
     sorted_users = sorted(filtered_users.items(), key=lambda x: x[1]['engagement'], reverse=True)[:5]
-
     return [InfluentialUser(
         rank=i, username=username, total_engagement=stats['engagement'],
         posts_count=stats['posts'], avg_engagement=round(stats['engagement'] / max(stats['posts'], 1), 2),
@@ -952,7 +936,6 @@ async def generate_trending_keywords(posts: List[Dict], comments: List[Dict]) ->
                 words = re.findall(r'\b[a-zA-Z]{4,}\b', text_str.lower())
                 for word in words:
                     platform_tracking[word].add(platform)
-
     if not all_text: return []
     
     combined_text = ' '.join(all_text[:100])
@@ -990,7 +973,6 @@ async def generate_trending_keywords(posts: List[Dict], comments: List[Dict]) ->
 async def generate_posts_histogram(yt_posts: List[Dict], rd_posts: List[Dict]) -> List[PostsHistogram]:
     weekly_data = defaultdict(lambda: {'youtube': 0, 'reddit': 0})
     date_fields = ['date_of_post', 'published_date', 'created_utc', 'timestamp']
-
     for post in yt_posts:
         if date_obj := next((parse_date_safely(post[field]) for field in date_fields if post.get(field)), None):
             week_key = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
@@ -1000,7 +982,6 @@ async def generate_posts_histogram(yt_posts: List[Dict], rd_posts: List[Dict]) -
         if date_obj := next((parse_date_safely(post[field]) for field in date_fields if post.get(field)), None):
             week_key = (date_obj - timedelta(days=date_obj.weekday())).strftime("%Y-%m-%d")
             weekly_data[week_key]['reddit'] += 1
-
     histogram = [PostsHistogram(time_period=w, youtube_posts=d['youtube'], reddit_posts=d['reddit'], total_posts=d['youtube'] + d['reddit']) for w, d in sorted(weekly_data.items())]
     return histogram if histogram else [PostsHistogram(time_period=(datetime.now().date() - timedelta(days=datetime.now().weekday())).strftime("%Y-%m-%d"), youtube_posts=0, reddit_posts=0, total_posts=0)]
 
@@ -1015,9 +996,7 @@ async def generate_trending_comments(comments: List[Dict], posts: List[Dict]) ->
             comment_copy['_engagement_score'] = engagement_score
             comment_copy['_platform'] = get_platform_from_item(comment)
             processed_comments.append(comment_copy)
-
     sorted_comments = sorted(processed_comments, key=lambda x: x.get('_engagement_score', 0), reverse=True)[:5]
-
     trending_list = []
     for i, comment in enumerate(sorted_comments, 1):
         platform = comment.get('_platform', 'Unknown')
@@ -1025,13 +1004,11 @@ async def generate_trending_comments(comments: List[Dict], posts: List[Dict]) ->
         
         post_id = str(comment.get('post_id', ''))
         post_title = post_map.get(post_id, "Context Unavailable")
-
         url = '#'
         if platform == 'Reddit' and comment.get('comment_id') and post_id:
             url = f"https://www.reddit.com/comments/{post_id}/_/{comment['comment_id']}"
         elif platform == 'YouTube' and comment.get('video_id') and comment.get('comment_id'):
-             url = f"https://www.youtube.com/watch?v={comment['video_id']}&lc={comment['comment_id']}"
-
+            url = f"https://www.youtube.com/watch?v={comment['video_id']}&lc={comment['comment_id']}"
         trending_list.append(TrendingComment(
             rank=i,
             author=str(comment.get('username') or comment.get('author') or 'Unknown'),
@@ -1051,7 +1028,6 @@ async def generate_sentiment_trends(posts: List[Dict], comments: List[Dict]) -> 
         date_obj = next((parse_date_safely(item[field]) for field in date_fields if item.get(field)), None)
         analysis_str = item.get('text_analysis')
         platform = get_platform_from_item(item)
-
         if date_obj and analysis_str and platform != 'Unknown':
             try:
                 analysis = json.loads(analysis_str)
@@ -1077,24 +1053,24 @@ async def generate_sentiment_trends(posts: List[Dict], comments: List[Dict]) -> 
                 )
                 if platform == "YouTube": yt_trends.append(point)
                 elif platform == "Reddit": rd_trends.append(point)
-
     return SentimentTrend(youtube=yt_trends, reddit=rd_trends)
 
 async def get_cluster_name_from_llm(texts: List[str], cluster_id: int) -> str:
     """Asks the Llama model to generate a concise name for a cluster based on sample texts."""
+    if not async_groq_client:
+        logger.warning(f"Groq client not available. Assigning default name for cluster {cluster_id}.")
+        return f"Cluster {cluster_id} (Unlabeled)"
+
     valid_texts = [text for text in texts if text and text.strip()]
     if not valid_texts:
         return f"Cluster {cluster_id}"
-
     sample_texts = "\n".join(f"- \"{text[:150].strip()}...\"" for text in valid_texts[:5])
     
     prompt = f"""
     You are an expert data analyst. Based on the following sample texts from a single data cluster, provide a short, descriptive name for the topic.
     The name must be 2-4 words maximum and summarize the core theme.
-
     Sample Texts:
     {sample_texts}
-
     Your response must be a single, valid JSON object with one key: "cluster_name".
     For example: {{"cluster_name": "AI Technology & ChatGPT"}}
     """
@@ -1113,6 +1089,10 @@ async def get_cluster_name_from_llm(texts: List[str], cluster_id: int) -> str:
 
 async def chat_with_clustered_data(question: str, cluster_data: List[Dict[str, Any]], cluster_name: str = None) -> str:
     """Uses the Llama model to answer questions about the clustered data."""
+    if not async_groq_client:
+        logger.error("Groq client not available for chat.")
+        return "I am sorry, but the chat functionality is currently unavailable due to a configuration issue."
+
     cluster_summary = {}
     
     if cluster_name:
@@ -1175,7 +1155,6 @@ async def chat_with_clustered_data(question: str, cluster_data: List[Dict[str, A
         return "I apologize, but I'm experiencing technical difficulties. Please try again later."
 
 # --- HELPER FUNCTIONS FOR DATA FILTERING ---
-
 def _get_filtered_data(platform: str, start_date: date, end_date: date):
     yt_posts = filter_by_date_range(data_cache.get("posts_youtube.json"), start_date, end_date, "YouTube") if platform in ["youtube", "both"] else []
     yt_comments = filter_by_date_range(data_cache.get("comments_youtube.json"), start_date, end_date, "YouTube") if platform in ["youtube", "both"] else []
@@ -1183,8 +1162,39 @@ def _get_filtered_data(platform: str, start_date: date, end_date: date):
     rd_comments = filter_by_date_range(data_cache.get("comments_reddit.json"), start_date, end_date, "Reddit") if platform in ["reddit", "both"] else []
     return yt_posts, yt_comments, rd_posts, rd_comments
 
-# --- API ROUTES ---
+def build_rag_model(data, embedding_model):
+    """Build RAG model with embeddings and KNN index"""
+    global embedding_store, knn_model
+    
+    try:
+        # Extract text for embedding
+        texts = []
+        for item in data:
+            text_parts = []
+            if item.get('text'):
+                text_parts.append(item['text'])
+            if item.get('username'):
+                text_parts.append(item['username'])
+            if item.get('platform'):
+                text_parts.append(item['platform'])
+            texts.append(' '.join(text_parts))
+        
+        # Generate embeddings
+        embeddings = embedding_model.encode(texts)
+        embedding_store = embeddings
+        
+        # Build KNN index
+        knn_model = NearestNeighbors(n_neighbors=min(8, len(data)), metric='cosine')
+        knn_model.fit(embeddings)
+        
+        logger.info(f"RAG model built successfully with {len(data)} embeddings")
+        
+    except Exception as e:
+        logger.error(f"Error building RAG model: {e}")
+        embedding_store = None
+        knn_model = None
 
+# --- API ROUTES ---
 @app.get("/")
 async def root():
     return {
@@ -1211,19 +1221,16 @@ async def get_complete_dashboard(request: PlatformRequest):
         start_time = datetime.now()
         platform, start_date, end_date = request.platform.lower(), request.date_range.start_date, request.date_range.end_date
         logger.info(f"Generating dashboard for {platform} from {start_date} to {end_date}")
-
         yt_posts = filter_by_date_range(data_cache.get("posts_youtube.json"), start_date, end_date, "YouTube")
         yt_comments = filter_by_date_range(data_cache.get("comments_youtube.json"), start_date, end_date, "YouTube")
         rd_posts = filter_by_date_range(data_cache.get("posts_reddit.json"), start_date, end_date, "Reddit")
         rd_comments = filter_by_date_range(data_cache.get("comments_reddit.json"), start_date, end_date, "Reddit")
-
         if platform == "both":
             posts, comments = yt_posts + rd_posts, yt_comments + rd_comments
         elif platform == "youtube":
             posts, comments = yt_posts, yt_comments
         else: # reddit
             posts, comments = rd_posts, rd_comments
-
         tasks = [
             generate_platform_distribution(yt_posts, rd_posts),
             generate_engagement_trends(yt_posts, yt_comments, rd_posts, rd_comments),
@@ -1237,7 +1244,6 @@ async def get_complete_dashboard(request: PlatformRequest):
         
         results = await asyncio.gather(*tasks, return_exceptions=True)
         final_results = [res if not isinstance(res, Exception) else (logger.error(f"Error in viz {i}: {res}"), []) for i, res in enumerate(results)]
-
         response = DashboardResponse(
             platform_distribution=final_results[0], engagement_trends=final_results[1],
             top_posts=final_results[2], influential_users=final_results[3],
@@ -1251,7 +1257,6 @@ async def get_complete_dashboard(request: PlatformRequest):
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 # --- Individual Endpoints ---
-
 @app.post("/platform-distribution")
 async def get_platform_distribution(request: PlatformRequest):
     yt_p, _, rd_p, _ = _get_filtered_data("both", request.date_range.start_date, request.date_range.end_date)
@@ -1306,11 +1311,11 @@ async def get_available_dates():
     return {"min_date": min(dates).isoformat() if dates else None, "max_date": max(dates).isoformat() if dates else None}
 
 # --- AI CLUSTERING ENDPOINTS ---
-
 @app.post("/cluster")
 async def cluster_data(num_clusters: int = 8):
     """
-    Loads all data with pre-computed embeddings, clusters it, and uses an LLM to generate cluster names.
+    Loads a limited sample of data (up to 500 records per file) with pre-computed embeddings,
+    clusters it, and uses an LLM to generate cluster names.
     """
     print("🚀 Starting clustering process with pre-computed embeddings...")
     all_records = []
@@ -1328,32 +1333,30 @@ async def cluster_data(num_clusters: int = 8):
         embedded_path = os.path.join(EMBEDDED_DATA_DIRECTORY, embedded_filename)
         embedded_records = read_embedded_json_file(embedded_path)
         
-        for record in embedded_records:
+        # Limit to the first 500 records from each file
+        records_to_process = embedded_records[:100]
+        
+        for record in records_to_process:
             if 'small_embedding' in record and record['small_embedding'] is not None:
                 all_records.append(record)
                 embeddings_list.append(record['small_embedding'])
         
-        print(f"✅ Loaded {len(embedded_records)} records with embeddings from {embedded_filename}")
-
+        print(f"✅ Loaded {len(records_to_process)} records with embeddings from {embedded_filename}")
     if not all_records:
         raise HTTPException(status_code=404, detail="No data with embeddings found in the embedded data directory.")
-
     print(f"📊 Total records with embeddings: {len(all_records)}")
     
     # Convert embeddings to numpy array
     embeddings = np.array(embeddings_list)
     print(f"🧠 Using pre-computed embeddings with shape: {embeddings.shape}")
-
     print(f"🔄 Performing KMeans clustering with {num_clusters} clusters...")
     kmeans = KMeans(n_clusters=num_clusters, random_state=42, n_init='auto')
     cluster_assignments = kmeans.fit_predict(embeddings)
-
     clustered_data = {i: [] for i in range(num_clusters)}
     for i, record in enumerate(all_records):
         cluster_id = int(cluster_assignments[i])
         record['cluster_id'] = cluster_id
         clustered_data[cluster_id].append(record)
-
     print("🤖 Asking Llama 3 to name the clusters sequentially to avoid rate limits...")
     cluster_name_map = {}
     for cluster_id, items in clustered_data.items():
@@ -1362,9 +1365,7 @@ async def cluster_data(num_clusters: int = 8):
         cluster_name_map[cluster_id] = cluster_name
         print(f"  - Cluster {cluster_id} named: '{cluster_name}'")
         await asyncio.sleep(0.5)
-
     print("✅ Cluster names generated:", cluster_name_map)
-
     final_clustered_records = []
     cluster_summary = []
     for cluster_id, name in cluster_name_map.items():
@@ -1373,14 +1374,12 @@ async def cluster_data(num_clusters: int = 8):
             item['cluster_name'] = name
             final_clustered_records.append(item)
         cluster_summary.append({"cluster_id": cluster_id, "cluster_name": name, "item_count": len(items)})
-
     # Cache the clustered data for chat functionality
     global clustered_data_cache, cluster_names_cache
     clustered_data_cache = final_clustered_records
     cluster_names_cache = list(set([item['cluster_name'] for item in final_clustered_records]))
     
     print(f"📊 Available clusters: {cluster_names_cache}")
-
     return {"clusters": cluster_summary, "data": final_clustered_records}
 
 @app.post("/cluster-chat")
@@ -1445,7 +1444,6 @@ async def get_available_clusters():
     return {"clusters": cluster_names}
 
 # --- NEO4J ENDPOINTS ---
-
 @app.post("/populate-database", status_code=200)
 def populate_database():
     base_path = "/home/y21tbh/Documents/insights-plus/insights-plus-simppl-task/backend/json_data"
@@ -1544,62 +1542,7 @@ def get_topic_info():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving topic info: {e}")
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
-import json
-import numpy as np
-from datetime import datetime
-import logging
-from sklearn.neighbors import NearestNeighbors
-import os
-from dotenv import load_dotenv
-import groq
-
-# Load environment variables
-load_dotenv()
-
-# Initialize logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-app = FastAPI(title="Neo4j Data Chat API", version="1.0.0")
-
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Global variables for RAG model
-data_store = None
-embedding_store = None
-knn_model = None
-embedding_model = None
-groq_client = None
-
-# Pydantic models
-class ChatQuery(BaseModel):
-    query: str
-
-class DataLoadRequest(BaseModel):
-    data: List[Dict[str, Any]]
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize the application on startup"""
-    global groq_client
-    try:
-        groq_client = groq.Groq(api_key=os.getenv("GROQ_API_KEY"))
-        logger.info("Groq client initialized successfully")
-    except Exception as e:
-        logger.error(f"Failed to initialize Groq client: {e}")
-        groq_client = None
-
+# --- RAG/CHATBOT ENDPOINTS ---
 @app.post("/load-data")
 async def load_data(request: DataLoadRequest, background_tasks: BackgroundTasks):
     """Load data and build RAG model in background"""
@@ -1626,50 +1569,6 @@ async def load_data(request: DataLoadRequest, background_tasks: BackgroundTasks)
     except Exception as e:
         logger.error(f"Error loading data: {e}")
         raise HTTPException(status_code=500, detail=f"Error loading data: {e}")
-
-def build_rag_model(data, embedding_model):
-    """Build RAG model with embeddings and KNN index"""
-    global embedding_store, knn_model
-    
-    try:
-        # Extract text for embedding
-        texts = []
-        for item in data:
-            text_parts = []
-            if item.get('text'):
-                text_parts.append(item['text'])
-            if item.get('username'):
-                text_parts.append(item['username'])
-            if item.get('platform'):
-                text_parts.append(item['platform'])
-            texts.append(' '.join(text_parts))
-        
-        # Generate embeddings
-        embeddings = embedding_model.encode(texts)
-        embedding_store = embeddings
-        
-        # Build KNN index
-        knn_model = NearestNeighbors(n_neighbors=min(8, len(data)), metric='cosine')
-        knn_model.fit(embeddings)
-        
-        logger.info(f"RAG model built successfully with {len(data)} embeddings")
-        
-    except Exception as e:
-        logger.error(f"Error building RAG model: {e}")
-        embedding_store = None
-        knn_model = None
-
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "data_loaded": data_store is not None and len(data_store) > 0,
-        "rag_ready": knn_model is not None and embedding_store is not None,
-        "embedding_model_ready": embedding_model is not None,
-        "groq_ready": groq_client is not None,
-        "timestamp": datetime.now().isoformat()
-    }
 
 @app.post("/neo4j-chat")
 async def chat_with_data(query: ChatQuery):
@@ -2008,25 +1907,19 @@ async def chat_with_data(query: ChatQuery):
         cleaned_context.append({k: v for k, v in cleaned_record.items() if v is not None})
         
     context_str = json.dumps(cleaned_context, indent=2)
-
     # --- Enhanced Prompt with Statistical Analysis and Visualizations ---
     prompt = f"""
     You are a senior data analyst providing comprehensive analysis with statistical rigor and actionable insights.
-
     User Question: "{query.query}"
-
     Data Context (Top {len(context_records)} relevant records):
     {context_str}
-
     CRITICAL INSTRUCTIONS:
     1. ALWAYS use ACTUAL usernames from the data: {[user.get('username') for user in users_data if user.get('username')]}
     2. NEVER use generic names like "UserA", "UserB", "Post1", "Post2"
     3. Use the specific usernames and post content from the provided data
     4. Ensure all 4 visualizations show different aspects of the data
     5. Use full statistical terminology with proper explanations
-
     Your response MUST be a single, valid JSON object with the following structure:
-
     {{
         "natural_response": {{
             "summary": "A clear, direct 2-3 sentence answer using ACTUAL usernames from the data",
@@ -2092,18 +1985,15 @@ async def chat_with_data(query: ChatQuery):
             "analysis_depth": "Comprehensive|Moderate|Basic"
         }}
     }}
-
     EXAMPLE WITH ACTUAL NAMES:
     "The most influential accounts in tax discussions are TinyNuggins92, hellowiththepudding, and Gnoll_For_Initiative. 
     TinyNuggins92's post about tax rates received 20 reactions, making it the most engaged content in the discussion."
-
     AVOID GENERIC TERMS:
     ❌ "UserA, UserB, and UserC"
     ❌ "Post1, Post2, Post3"  
     ✅ "TinyNuggins92, hellowiththepudding, Gnoll_For_Initiative"
     ✅ "The post about tax rates received 20 reactions"
     """
-
     try:
         chat_completion = groq_client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
@@ -2260,43 +2150,51 @@ async def chat_with_data(query: ChatQuery):
         })
         
         return llm_output
-
     except Exception as e:
         print(f"❌ Error in chat endpoint: {e}")
         raise HTTPException(status_code=500, detail=f"Error processing request: {e}")
 
 @app.get("/neo4j-health")
-def health_check():
+def health_check_neo4j():
     try:
-        driver.verify_connectivity()
-        neo4j_connected = True
+        if driver:
+            driver.verify_connectivity()
+            neo4j_connected = True
+        else:
+            neo4j_connected = False
     except:
         neo4j_connected = False
         
     return {
         "status": "healthy",
-        "data_loaded": len(data_store),
+        "data_loaded": len(data_store) if data_store else 0,
         "model_ready": knn_model is not None,
         "neo4j_connected": neo4j_connected,
         "version": "3.0.1"
     }
 
 # --- APPLICATION STARTUP AND SHUTDOWN ---
-
 @app.on_event("startup")
 async def startup_event():
-    global data_store, embedding_store, knn_model
-    logger.info("🚀 Application startup: Loading data and training retrieval model...")
-    # Initialize data_store as empty list if it's None
-    if data_store is None:
-        data_store = []
-            
-    
-    # Pre-load data cache
+    global data_store, embedding_store, knn_model, groq_client
+    logger.info("🚀 Application startup: Initializing...")
+    # Initialize Groq client
+    try:
+        if GROQ_API_KEY:
+            groq_client = Groq(api_key=GROQ_API_KEY)
+            logger.info("Groq client initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize Groq client: {e}")
+        groq_client = None
+    # Pre-load data cache for dashboard
     for filename in ["comments_reddit.json", "posts_reddit.json", "comments_youtube.json", "posts_youtube.json"]:
         data_cache.get(filename)
     
-    # Path to embedded JSON data
+    # Load data and build RAG model
+    logger.info("Loading data and training retrieval model...")
+    if data_store is None:
+        data_store = []
+    
     EMBEDDED_DATA_PATH = "/home/y21tbh/Documents/insights-plus/insights-plus-simppl-task/backend/embedded_json_data"
     
     files_to_load = [
@@ -2315,22 +2213,17 @@ async def startup_event():
             for record in records:
                 data_store.append(record)
                 
-                # Extract existing embedding from the embedded data
                 embedding = None
-                # Try different possible embedding field names
                 for field_name in ['small_embedding', 'embedding', 'embeddings']:
                     if field_name in record:
                         embedding = parse_embedding(record[field_name])
                         if embedding is not None:
-                            logger.info(f"📌 Using existing {field_name} for record with id: {record.get('id', 'unknown')}")
                             break
                 
                 if embedding and len(embedding) == 384:
                     temp_embeddings.append(embedding)
                 else:
-                    # Fallback: generate embedding if not found in data
-                    # For free tier, we'll skip generating embeddings to save memory
-                    logger.warning(f"⚠️  No existing embedding found for record with id: {record.get('id', 'unknown')}. Skipping.")
+                    logger.warning(f"⚠️  No valid embedding found for record with id: {record.get('id', 'unknown')}. Skipping.")
     
     if not temp_embeddings:
         logger.error("❌ CRITICAL ERROR: No embeddings loaded. Chat agent will not work.")
