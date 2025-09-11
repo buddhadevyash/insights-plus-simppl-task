@@ -8,6 +8,16 @@ The project leverages a modern and scalable architecture with:
 - **Neo4j** for graph-based data modeling.  
 - **Groq API** for cutting-edge AI-powered analysis.  
 
+[![Next.js](https://img.shields.io/badge/Next.js-15.0.0-black.svg)](https://nextjs.org/)
+[![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-F7DF1E.svg)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
+[![ShadCN/UI](https://img.shields.io/badge/ShadCN/UI-Components-purple.svg)](https://ui.shadcn.com/)
+[![Vis.js](https://img.shields.io/badge/Vis.js-Network%20Graphs-orange.svg)](https://visjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Framework-009688.svg)](https://fastapi.tiangolo.com/)
+[![Python](https://img.shields.io/badge/Python-3.11+-yellow.svg)](https://www.python.org/)
+[![Neo4j](https://img.shields.io/badge/Neo4j-GraphDB-008CC1.svg)](https://neo4j.com/)
+[![Groq API](https://img.shields.io/badge/Groq-API-red.svg)](https://groq.com/)
+
+
 <img width="962" height="743" alt="- visual selection" src="https://github.com/user-attachments/assets/4ad45035-80a4-49d1-9dae-c9413b8e2fa0" />
 
 
