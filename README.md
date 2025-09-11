@@ -24,8 +24,12 @@ The project leverages a modern and scalable architecture with:
 
 
 ---
-    ## 📽️ Demo Video  
-[![Watch the Demo: https://www.youtube.com/watch?v=yD7N7sRS68E](https://img.youtube.com/vi/yD7N7sRS68E/0.jpg)](https://youtu.be/yD7N7sRS68E)
+## 📽️ Demo Video  
+
+<a href="https://www.youtube.com/watch?v=yD7N7sRS68E" target="_blank">
+  <img src="https://img.youtube.com/vi/yD7N7sRS68E/maxresdefault.jpg" alt="Watch the Demo" width="100%" />
+</a>
+
 # Technical System Overview
 
 This project integrates **conversational AI, clustering, interactive dashboards, graph-based data modeling, and external data augmentation** to deliver advanced insights from YouTube and Reddit datasets. Below is a detailed breakdown of the components I designed.
