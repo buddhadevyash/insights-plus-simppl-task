@@ -8,6 +8,9 @@ The project leverages a modern and scalable architecture with:
 - **Neo4j** for graph-based data modeling.  
 - **Groq API** for cutting-edge AI-powered analysis.  
 
+- **<img width="962" height="743" alt="- visual selection" src="https://github.com/user-attachments/assets/4ad45035-80a4-49d1-9dae-c9413b8e2fa0" />
+
+
 ---
     ## 📽️ Demo Video  
 [![Watch the Demo: https://www.youtube.com/watch?v=yD7N7sRS68E](https://img.youtube.com/vi/yD7N7sRS68E/0.jpg)](https://youtu.be/yD7N7sRS68E)
