@@ -63,6 +63,11 @@ This design ensures scalability with larger context windows when upgrading beyon
 <img width="1748" height="1013" alt="Screenshot From 2025-09-11 01-30-42" src="https://github.com/user-attachments/assets/d5a6d7dc-f59d-4a81-a02c-f9585b2f5bed" />
 <img width="1748" height="1013" alt="Screenshot From 2025-09-11 01-30-46" src="https://github.com/user-attachments/assets/94a98424-3f91-4e7b-89bb-d77e4712f1d1" />
 <img width="1748" height="1013" alt="Screenshot From 2025-09-11 01-30-49" src="https://github.com/user-attachments/assets/f0bc7236-28f8-4999-a872-f3090de253f4" />
+<img width="1481" height="988" alt="updated_plot_1" src="https://github.com/user-attachments/assets/1f0912d0-a7b4-4731-81e8-d6e09c524bb7" />
+<img width="1481" height="988" alt="updated_plot_3" src="https://github.com/user-attachments/assets/16669136-ab00-40c7-be03-0be64dc77c35" />
+<img width="1481" height="988" alt="updated_plot_2" src="https://github.com/user-attachments/assets/7d0d4fea-4d08-4106-bb32-85ffff7a55c4" />
+<img width="1481" height="988" alt="updated_plot_4" src="https://github.com/user-attachments/assets/03c1c201-6baf-4cc3-99ab-40e2a4320b25" />
+
 
 ---
 
